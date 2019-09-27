@@ -1,0 +1,11 @@
+package: github.com/redhat-nfvpe/vdpa-deployment
+import:
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
+- package: google.golang.org/grpc
+  subpackages:
+  - codes
+  - credentials
+  - status
+  - testdata
