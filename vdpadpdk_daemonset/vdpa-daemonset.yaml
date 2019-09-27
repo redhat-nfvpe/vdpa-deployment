@@ -1,0 +1,50 @@
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: vdpa-deamon-amd64
+  #namespace: vdpadpdk
+  labels:
+    tier: node
+    app: vdpadpdk
+spec:
+  template:
+    metadata:
+      labels:
+        tier: node
+        app: vdpadpdk
+    spec:
+      nodeSelector:
+        beta.kubernetes.io/arch: amd64
+      tolerations:
+      - key: node-role.kubernetes.io/master
+        effect: NoSchedule
+      containers:
+      - name: daemonset-vdpadpdk
+        image: nfvpe/vdpa-daemonset
+        imagePullPolicy: Never
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: vhostsock
+          mountPath: /var/run/vdpa/
+          readOnly: false
+        - name: log
+          mountPath: /var/log
+        - mountPath: /dev/hugepages
+          name: hugepage
+        resources:
+          requests:
+            memory: 1Gi
+          limits:
+            hugepages-1Gi: 2Gi
+        #command: ["sleep", "infinity"]
+      volumes:
+        - name: vhostsock
+          hostPath:
+            path: /var/run/vdpa/
+        - name: log
+          hostPath:
+            path: /var/log
+        - name: hugepage
+          emptyDir:
+            medium: HugePages

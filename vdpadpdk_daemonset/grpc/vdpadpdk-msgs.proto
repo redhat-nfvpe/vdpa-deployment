@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package vdpadpdk;
+
+message GetSocketpathRequest {
+    string pciAddress = 1;
+}
+
+message GetSocketpathResponse {
+    string socketpath = 1;
+}
+
+service VdpaDpdk {
+    rpc GetSocketpath(GetSocketpathRequest) returns (GetSocketpathResponse) {}
+}
