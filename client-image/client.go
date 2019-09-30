@@ -18,7 +18,7 @@ import (
 
 	_ "github.com/golang/protobuf/proto"
 
-	vdpagrpc "github.com/redhat-nfvpe/vdpa-deployment/vdpadpdk_daemonset/grpc"
+	vdpagrpc "github.com/redhat-nfvpe/vdpa-deployment/grpc"
 )
 
 var (
