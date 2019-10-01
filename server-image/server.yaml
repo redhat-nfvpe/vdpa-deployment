@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vdpa-grpc-server
+spec:
+  containers:
+  - name: vdpa-grpc-server
+    image: nfvpe/vdpa-grpc-server
+    imagePullPolicy: Never
+    volumeMounts:
+      - name: vhostsock
+        mountPath: /var/run/vdpa/
+        readOnly: false
+      - name: log
+        mountPath: /var/log
+      - name: podinfo
+        mountPath: /etc/podinfo
+    #command: ["sleep", "infinity"]
+  volumes:
+    - name: vhostsock
+      hostPath:
+        path: /var/run/vdpa/
+    - name: log
+      hostPath:
+        path: /var/log
+    - name: podinfo
+      downwardAPI:
+        items:
+          - path: "annotations"
+            fieldRef:
+              fieldPath: metadata.annotations

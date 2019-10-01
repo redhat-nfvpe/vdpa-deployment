@@ -48,7 +48,6 @@ RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
 # Build vdpa
 #
 WORKDIR ${DPDK_DIR}/examples/vdpa
-COPY ./main.c ./main.c
 RUN make
 RUN cp build/vdpa /usr/bin/vdpa
 

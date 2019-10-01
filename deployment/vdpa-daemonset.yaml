@@ -30,13 +30,25 @@ spec:
           readOnly: false
         - name: log
           mountPath: /var/log
-        - mountPath: /dev/hugepages
-          name: hugepage
+        - name: hugepage
+          mountPath: /dev/hugepages
         resources:
           requests:
             memory: 1Gi
           limits:
             hugepages-1Gi: 2Gi
+        #command: ["sleep", "infinity"]
+      - name: vdpa-grpc-server
+        image: nfvpe/vdpa-grpc-server
+        imagePullPolicy: Never
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: vhostsock
+            mountPath: /var/run/vdpa/
+            readOnly: false
+          - name: log
+            mountPath: /var/log
         #command: ["sleep", "infinity"]
       volumes:
         - name: vhostsock

@@ -17,7 +17,7 @@ import (
 
 	_ "github.com/golang/protobuf/proto"
 
-	vdpagrpc "github.com/redhat-nfvpe/vdpa-deployment/vdpadpdk_daemonset/grpc"
+	vdpagrpc "github.com/redhat-nfvpe/vdpa-deployment/grpc"
 )
 
 var (
@@ -58,7 +58,7 @@ func (s *vdpaDpdkServer) GetSocketpath(ctx context.Context, req *vdpagrpc.GetSoc
 	return &rsp, nil
 }
 
-// retrieveInterfaces scans the system for available vDPA Interfaces (PCI Addresses).
+// scanInterfaces scans the system for available vDPA Interfaces (PCI Addresses).
 func (s *vdpaDpdkServer) scanInterfaces() {
 	if err := json.Unmarshal(exampleData, &s.mappingTable); err != nil {
 		log.Fatalf("Failed to load default mappingTable: %v", err)
@@ -105,7 +105,7 @@ func main() {
 	grpcServer.Serve(lis)
 }
 
-// exampleData is a copy of testdata/vdpa_db.json. It's to avoid
+// exampleData is a copy of vdpa_db.json. It's to avoid
 // specifying file path with `go run`.
 var exampleData = []byte(`[{
     "pciAddress": "0000:82:00.2",
