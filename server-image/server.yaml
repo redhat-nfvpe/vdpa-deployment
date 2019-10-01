@@ -8,9 +8,21 @@ spec:
     image: nfvpe/vdpa-grpc-server
     imagePullPolicy: Never
     volumeMounts:
+      - name: vhostsock
+        mountPath: /var/run/vdpa/
+        readOnly: false
+      - name: log
+        mountPath: /var/log
       - name: podinfo
         mountPath: /etc/podinfo
+    #command: ["sleep", "infinity"]
   volumes:
+    - name: vhostsock
+      hostPath:
+        path: /var/run/vdpa/
+    - name: log
+      hostPath:
+        path: /var/log
     - name: podinfo
       downwardAPI:
         items:

@@ -1,5 +1,8 @@
-# To build:
-#  docker build --rm -t nfvpe/vdpa-daemonset .
+# To build, run below cmd in the root dir of
+# github.com/redhat-nfvpe/vdpa-deployment repo:
+#  make server-image
+#  -- OR --
+#  docker build --rm -t nfvpe/vdpa-grpc-client -f ./client-image/Dockerfile .
 #
 
 # -------- Builder stage.
@@ -11,56 +14,30 @@ MAINTAINER Billy McFall <bmcfall@redhat.com>
 #
 RUN rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO && curl -s https://mirror.go-repo.io/centos/go-repo.repo | tee /etc/yum.repos.d/go-repo.repo
 RUN yum groupinstall -y "Development Tools"
-RUN yum install -y wget numactl-devel git golang make; yum clean all
+RUN yum install -y git golang make; yum clean all
 # Debug Tools (if needed):
 #RUN yum install -y pciutils iproute; yum clean all
 
-#
-# Download and Build DPDK
-#
-ENV DPDK_VER 19.08
-ENV DPDK_DIR /usr/src/dpdk-${DPDK_VER}
-WORKDIR /usr/src/
-RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz
-RUN tar -xpvf dpdk-${DPDK_VER}.tar.xz
-
-ENV RTE_TARGET=x86_64-native-linuxapp-gcc
-ENV RTE_SDK=${DPDK_DIR}
-WORKDIR ${DPDK_DIR}
-
-# DPDK_VER 19.08
-RUN sed -i -e 's/EAL_IGB_UIO=y/EAL_IGB_UIO=n/' config/common_linux
-RUN sed -i -e 's/KNI_KMOD=y/KNI_KMOD=n/' config/common_linux
-RUN sed -i -e 's/LIBRTE_KNI=y/LIBRTE_KNI=n/' config/common_linux
-RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linux
-# Additional Debug if Needed
-#RUN sed -i -e 's/CONFIG_RTE_LIBRTE_ETHDEV_DEBUG=n/CONFIG_RTE_LIBRTE_ETHDEV_DEBUG=y/' config/common_base
-
-# DPDK_VER 19.02
-#RUN sed -i -e 's/EAL_IGB_UIO=y/EAL_IGB_UIO=n/' config/common_linuxapp
-#RUN sed -i -e 's/KNI_KMOD=y/KNI_KMOD=n/' config/common_linuxapp
-#RUN sed -i -e 's/LIBRTE_KNI=y/LIBRTE_KNI=n/' config/common_linuxapp
-#RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linuxapp
-
-RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
 
 #
-# Build vdpa
+# Build vdpadpdk-grpc-server
 #
-WORKDIR ${DPDK_DIR}/examples/vdpa
-RUN make
-RUN cp build/vdpa /usr/bin/vdpa
+WORKDIR /root/go/src/
+##RUN go get github.com/redhat-nfvpe/vdpa-deployment 2>&1 > /tmp/vdpa-deployment.log || \
+##	echo "Can ignore no GO files."
+ADD . /root/go/src/github.com/redhat-nfvpe/vdpa-deployment
 
+WORKDIR /root/go/src/github.com/redhat-nfvpe/vdpa-deployment
+RUN make client
+RUN cp bin/vdpa-client /usr/bin/vdpa-client
 
 # -------- Import stage.
 # Docker 17.05 or higher
 FROM centos
-COPY --from=0 /usr/bin/vdpa /usr/bin/vdpa
-COPY --from=0 /usr/lib64/libnuma.so.1 /usr/lib64/libnuma.so.1
+COPY --from=0 /usr/bin/vdpa-client /usr/bin/vdpa-client
 
-LABEL io.k8s.display-name="vDPA Daemonset"
+LABEL io.k8s.display-name="vDPA gRPC Client"
 
-ADD ./entrypoint.sh /
+ADD ./client-image/entrypoint.sh /
 
 ENTRYPOINT ["/entrypoint.sh"]
-

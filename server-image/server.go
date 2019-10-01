@@ -1,35 +1,44 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright(c) 2019 Red Hat, Inc.
+
+//
+// This module implements the server side for the gRPC calls.
+// This code is intended run in a sidecar to the vDPA-DPDK
+// application. The vDPA-DPDK application serves as one side,
+// the hardware vring side, of the vHost channel that is used
+// by the vDPA interfaces to negotiate with vring settings.
+//
+// The gRPC Serber provides an API for CNIs to retrieve the
+// Unix Socket file of the vHost from the vDPA-DPDK application.
+//
+
 package main
 
 import (
 	"context"
 	"encoding/json"
 	"flag"
-	"fmt"
-	_ "io"
 	"io/ioutil"
-	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/golang/glog"
 
 	"google.golang.org/grpc"
-
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/testdata"
-
-	_ "github.com/golang/protobuf/proto"
 
 	vdpagrpc "github.com/redhat-nfvpe/vdpa-deployment/grpc"
 	vdpatypes "github.com/redhat-nfvpe/vdpa-deployment/pkg/types"
 )
 
 var (
-	tls        = flag.Bool("tls", false, "Connection uses TLS if true, else plain TCP")
-	certFile   = flag.String("cert_file", "", "The TLS cert file")
-	keyFile    = flag.String("key_file", "", "The TLS key file")
 	jsonDBFile = flag.String("json_db_file", "", "A json file containing a list of vDPA VF Interfaces")
-	port       = flag.Int("port", 10000, "The server port")
 )
 
 type vdpaDpdkServer struct {
+	grpcServer *grpc.Server
 	mappingTable []*vdpatypes.VFPCIMapping
 }
 
@@ -38,16 +47,16 @@ type vdpaDpdkServer struct {
 func (s *vdpaDpdkServer) GetSocketpath(ctx context.Context, req *vdpagrpc.GetSocketpathRequest) (*vdpagrpc.GetSocketpathResponse, error) {
 	var rsp vdpagrpc.GetSocketpathResponse
 
-	log.Printf("Received request for PCI Address %s", req.PciAddress)
+	glog.Infof("Received request for PCI Address %s", req.PciAddress)
 	for _, vdpaIface := range s.mappingTable {
 		if vdpaIface.PciAddress == req.PciAddress {
 			rsp.Socketpath = vdpaIface.Socketpath
-			log.Printf("Found File: %s", rsp.Socketpath)
+			glog.Infof("Found File: %s", rsp.Socketpath)
 			break
 		}
 	}
 	if rsp.Socketpath == "" {
-		log.Printf("No File Found!")
+		glog.Infof("No File Found!")
 	}
 	
 	return &rsp, nil
@@ -61,47 +70,93 @@ func (s *vdpaDpdkServer) loadInterfaces(filePath string) {
 		var err error
 		data, err = ioutil.ReadFile(filePath)
 		if err != nil {
-			log.Fatalf("Failed to load default features: %v", err)
+			glog.Errorf("Failed to read input file: %v", err)
 		}
 	} else {
 		data = exampleData
 	}
 	if err := json.Unmarshal(data, &s.mappingTable); err != nil {
-		log.Fatalf("Failed to load default features: %v", err)
+		glog.Errorf("Failed to read sample data: %v", err)
 	}
 }
 
-// newServer creates a new server instance with initialized data.
-func newServer() *vdpaDpdkServer {
-	s := &vdpaDpdkServer{}
+func (s *vdpaDpdkServer) start() error {
+	glog.Infof("starting vdpaDpdk server at: %s\n", vdpatypes.GRPCEndpoint)
+	lis, err := net.Listen("unix", vdpatypes.GRPCEndpoint)
+	if err != nil {
+		glog.Errorf("Error creating vdpaDpdk gRPC service: %v", err)
+		return err
+	}
+
+	vdpagrpc.RegisterVdpaDpdkServer(s.grpcServer, s)
+	go s.grpcServer.Serve(lis)
+
+	// Wait for server to start
+	conn, err := grpc.Dial(vdpatypes.GRPCEndpoint, grpc.WithInsecure(), grpc.WithBlock(),
+		grpc.WithTimeout(5*time.Second),
+		grpc.WithDialer(func(addr string, timeout time.Duration) (net.Conn, error) {
+			return net.DialTimeout("unix", addr, timeout)
+		}),
+	)
+	if err != nil {
+		glog.Errorf("Error starting vdpaDpdk server: %v", err)
+		return err
+	}
+	glog.Infof("vdpaDpdk server start serving")
+	conn.Close()
+	return nil
+}
+
+func (s *vdpaDpdkServer) stop() error {
+	glog.Infof("stopping vdpaDpdk server")
+	if s.grpcServer != nil {
+		s.grpcServer.Stop()
+		s.grpcServer = nil
+	}
+	err := os.Remove(vdpatypes.GRPCEndpoint)
+	if err != nil && !os.IsNotExist(err) {
+		glog.Errorf("Error cleaning up socket file")
+	}
+	return nil
+}
+
+// newVdpaDpdkServer creates a new server instance with initialized data.
+func newVdpaDpdkServer() *vdpaDpdkServer {
+	s := &vdpaDpdkServer{
+		grpcServer: grpc.NewServer(),
+	}
 	s.loadInterfaces(*jsonDBFile)
 	return s
 }
 
 func main() {
 	flag.Parse()
-	lis, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", *port))
+
+	// Cleanup socketfile before starting.
+	err := os.Remove(vdpatypes.GRPCEndpoint)
+	if err != nil && !os.IsNotExist(err) {
+		glog.Errorf("Error cleaning up socket file")
+	}
+
+	vdpaServer := newVdpaDpdkServer()
+	if vdpaServer == nil {
+		glog.Errorf("Error initializing netutil manager")
+		return
+	}
+	err = vdpaServer.start()
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		return
 	}
-	var opts []grpc.ServerOption
-	if *tls {
-		if *certFile == "" {
-			*certFile = testdata.Path("server1.pem")
-		}
-		if *keyFile == "" {
-			*keyFile = testdata.Path("server1.key")
-		}
-		creds, err := credentials.NewServerTLSFromFile(*certFile, *keyFile)
-		if err != nil {
-			log.Fatalf("Failed to generate credentials %v", err)
-		}
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-	grpcServer := grpc.NewServer(opts...)
-	vdpagrpc.RegisterVdpaDpdkServer(grpcServer, newServer())
-	grpcServer.Serve(lis)
-}
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
+
+	select {
+	case sig := <-sigCh:
+		glog.Infof("signal received, shutting down", sig)
+		vdpaServer.stop()
+		return
+}}
 
 
 // exampleData is a copy of vdpa_db.json. It's to avoid
