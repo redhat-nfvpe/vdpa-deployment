@@ -32,11 +32,14 @@ RUN make server
 RUN cp bin/vdpa-server /usr/bin/vdpa-server
 
 # -------- Import stage.
-# Docker 17.05 or higher
+# BEGIN - Docker 17.05 or higher
 FROM centos
 COPY --from=0 /usr/bin/vdpa-server /usr/bin/vdpa-server
+# END - Docker 17.05 or higher
 
 LABEL io.k8s.display-name="vDPA gRPC Server"
+
+RUN yum install -y epel-release; yum install -y inotify-tools; yum clean all
 
 ADD ./server-image/entrypoint.sh /
 

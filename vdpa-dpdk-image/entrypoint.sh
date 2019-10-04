@@ -3,18 +3,32 @@
 set -e
 
 VDPA_SYS_BINARY_DIR="/usr/bin"
+VDPA_PCILIST="/var/run/vdpa/pciList.dat"
+VDPA_VHOST_SOCKETDIR="/var/run/vdpa/vhost"
 
 CLI_PARAMS=""
 CLI_PARAMS="$CLI_PARAMS -l 10-13"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:00.2,vdpa=1 -w 0000:82:00.3,vdpa=1"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:00.4,vdpa=1 -w 0000:82:00.5,vdpa=1"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:00.6,vdpa=1 -w 0000:82:00.7,vdpa=1"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:01.0,vdpa=1 -w 0000:82:01.1,vdpa=1"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:01.2,vdpa=1 -w 0000:82:01.3,vdpa=1"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:01.4,vdpa=1 -w 0000:82:01.5,vdpa=1"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:01.6,vdpa=1 -w 0000:82:01.7,vdpa=1"
-CLI_PARAMS="$CLI_PARAMS -w 0000:82:02.0,vdpa=1 -w 0000:82:02.1,vdpa=1"
+
+ORIG_NUM_WATCHES=`cat /proc/sys/fs/inotify/max_user_watches`
+echo 500000 > /proc/sys/fs/inotify/max_user_watches
+file=$VDPA_PCILIST
+while [ ! -f "$file" ]
+do
+    $VDPA_SYS_BINARY_DIR/inotifywait -qqt 300 -e close "$(dirname $file)"
+done
+echo $ORIG_NUM_WATCHES > /proc/sys/fs/inotify/max_user_watches
+
+while read -r line
+do
+  CLI_PARAMS="$CLI_PARAMS -w $line,vdpa=1"
+done < "$file"
+rm $file
+
 CLI_PARAMS="$CLI_PARAMS --"
-CLI_PARAMS="$CLI_PARAMS --iface /var/run/vdpa/vdpa-"
+CLI_PARAMS="$CLI_PARAMS --iface $VDPA_VHOST_SOCKETDIR/vdpa-"
+
+# Remove any existing vhost socketfiles then recreated the directory
+rm -rf $VDPA_VHOST_SOCKETDIR
+mkdir -p $VDPA_VHOST_SOCKETDIR
 
 $VDPA_SYS_BINARY_DIR/vdpa $CLI_PARAMS
