@@ -15,7 +15,7 @@ spec:
         mountPath: /var/log
       - name: podinfo
         mountPath: /etc/podinfo
-    #command: ["sleep", "infinity"]
+    command: ["sleep", "infinity"]
   volumes:
     - name: vhostsock
       hostPath:

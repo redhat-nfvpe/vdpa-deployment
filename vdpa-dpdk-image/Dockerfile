@@ -48,19 +48,25 @@ RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
 # Build vdpa
 #
 WORKDIR ${DPDK_DIR}/examples/vdpa
+COPY ./vdpa-dpdk-image/main_write_table.txt ./main_write_table.txt
+COPY ./vdpa-dpdk-image/main_substitute.sh ./main_substitute.sh
+RUN ./main_substitute.sh
 RUN make
 RUN cp build/vdpa /usr/bin/vdpa
 
 
 # -------- Import stage.
-# Docker 17.05 or higher
+# BEGIN - Docker 17.05 or higher
 FROM centos
 COPY --from=0 /usr/bin/vdpa /usr/bin/vdpa
 COPY --from=0 /usr/lib64/libnuma.so.1 /usr/lib64/libnuma.so.1
+# END - Docker 17.05 or higher
 
 LABEL io.k8s.display-name="vDPA Daemonset"
 
-ADD ./entrypoint.sh /
+RUN yum install -y epel-release; yum install -y inotify-tools; yum clean all
+
+ADD ./vdpa-dpdk-image/entrypoint.sh /
 
 ENTRYPOINT ["/entrypoint.sh"]
 

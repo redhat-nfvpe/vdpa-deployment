@@ -2,7 +2,7 @@
 // Copyright(c) 2019 Red Hat, Inc.
 
 //
-// This module implements the GO types for the project.
+// Package types implements the GO types for the project.
 //
 
 package types

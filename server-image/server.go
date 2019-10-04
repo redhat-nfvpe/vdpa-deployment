@@ -2,13 +2,13 @@
 // Copyright(c) 2019 Red Hat, Inc.
 
 //
-// This module implements the server side for the gRPC calls.
+// Package main implements the server side for the gRPC calls.
 // This code is intended run in a sidecar to the vDPA-DPDK
 // application. The vDPA-DPDK application serves as one side,
 // the hardware vring side, of the vHost channel that is used
 // by the vDPA interfaces to negotiate with vring settings.
 //
-// The gRPC Serber provides an API for CNIs to retrieve the
+// The gRPC Server provides an API for CNIs to retrieve the
 // Unix Socket file of the vHost from the vDPA-DPDK application.
 //
 
@@ -19,13 +19,12 @@ import (
 	"encoding/json"
 	"flag"
 	"io/ioutil"
+	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	"github.com/golang/glog"
 
 	"google.golang.org/grpc"
 
@@ -34,7 +33,7 @@ import (
 )
 
 var (
-	jsonDBFile = flag.String("json_db_file", "", "A json file containing a list of vDPA VF Interfaces")
+	socketlist = flag.String("socketlist", "", "A json file containing a list of vDPA VF Interfaces")
 )
 
 type vdpaDpdkServer struct {
@@ -47,16 +46,16 @@ type vdpaDpdkServer struct {
 func (s *vdpaDpdkServer) GetSocketpath(ctx context.Context, req *vdpagrpc.GetSocketpathRequest) (*vdpagrpc.GetSocketpathResponse, error) {
 	var rsp vdpagrpc.GetSocketpathResponse
 
-	glog.Infof("Received request for PCI Address %s", req.PciAddress)
+	log.Printf("INFO: Received request for PCI Address %s", req.PciAddress)
 	for _, vdpaIface := range s.mappingTable {
 		if vdpaIface.PciAddress == req.PciAddress {
 			rsp.Socketpath = vdpaIface.Socketpath
-			glog.Infof("Found File: %s", rsp.Socketpath)
+			log.Printf("INFO: Found File: %s", rsp.Socketpath)
 			break
 		}
 	}
 	if rsp.Socketpath == "" {
-		glog.Infof("No File Found!")
+		log.Printf("INFO: No File Found!")
 	}
 	
 	return &rsp, nil
@@ -68,23 +67,34 @@ func (s *vdpaDpdkServer) loadInterfaces(filePath string) {
 	var data []byte
 	if filePath != "" {
 		var err error
+		log.Printf("INFO: loadInterfaces - filePath=%s\n", filePath)
 		data, err = ioutil.ReadFile(filePath)
 		if err != nil {
-			glog.Errorf("Failed to read input file: %v", err)
+			log.Printf("ERROR: Failed to read input file - %v", err)
+		}
+		err = os.Remove(filePath)
+		if err != nil {
+			log.Printf("ERROR: Failed to remove file - %v", err)
 		}
 	} else {
+		log.Printf("INFO: loadInterfaces - Using ExampleData.\n")
 		data = exampleData
 	}
 	if err := json.Unmarshal(data, &s.mappingTable); err != nil {
-		glog.Errorf("Failed to read sample data: %v", err)
+		log.Printf("ERROR: Failed to read ExampleData - %v", err)
+	}
+
+	log.Printf("INFO: Loaded:")
+	for _, vdpaIface := range s.mappingTable {
+		log.Printf("  PCI: %s  Socketpath: %s", vdpaIface.PciAddress, vdpaIface.Socketpath)
 	}
 }
 
 func (s *vdpaDpdkServer) start() error {
-	glog.Infof("starting vdpaDpdk server at: %s\n", vdpatypes.GRPCEndpoint)
+	log.Printf("INFO: Starting vdpaDpdk gRPC Server at: %s\n", vdpatypes.GRPCEndpoint)
 	lis, err := net.Listen("unix", vdpatypes.GRPCEndpoint)
 	if err != nil {
-		glog.Errorf("Error creating vdpaDpdk gRPC service: %v", err)
+		log.Printf("ERROR: Error opening socket - %v", err)
 		return err
 	}
 
@@ -99,23 +109,23 @@ func (s *vdpaDpdkServer) start() error {
 		}),
 	)
 	if err != nil {
-		glog.Errorf("Error starting vdpaDpdk server: %v", err)
+		log.Printf("ERROR: Error dialing socket - %v", err)
 		return err
 	}
-	glog.Infof("vdpaDpdk server start serving")
+	log.Printf("INFO: vdpaDpdk gRPC Server listening.")
 	conn.Close()
 	return nil
 }
 
 func (s *vdpaDpdkServer) stop() error {
-	glog.Infof("stopping vdpaDpdk server")
+	log.Printf("INFO: Stopping vdpaDpdk gRPC Server.")
 	if s.grpcServer != nil {
 		s.grpcServer.Stop()
 		s.grpcServer = nil
 	}
 	err := os.Remove(vdpatypes.GRPCEndpoint)
 	if err != nil && !os.IsNotExist(err) {
-		glog.Errorf("Error cleaning up socket file")
+		log.Printf("ERROR: Error cleaning up socket file.")
 	}
 	return nil
 }
@@ -125,7 +135,7 @@ func newVdpaDpdkServer() *vdpaDpdkServer {
 	s := &vdpaDpdkServer{
 		grpcServer: grpc.NewServer(),
 	}
-	s.loadInterfaces(*jsonDBFile)
+	s.loadInterfaces(*socketlist)
 	return s
 }
 
@@ -135,12 +145,12 @@ func main() {
 	// Cleanup socketfile before starting.
 	err := os.Remove(vdpatypes.GRPCEndpoint)
 	if err != nil && !os.IsNotExist(err) {
-		glog.Errorf("Error cleaning up socket file")
+		log.Printf("INFO: Error cleaning up previous socket file.")
 	}
 
 	vdpaServer := newVdpaDpdkServer()
 	if vdpaServer == nil {
-		glog.Errorf("Error initializing netutil manager")
+		log.Printf("ERROR: Error creating new vdpaDpdk gRPC Server.")
 		return
 	}
 	err = vdpaServer.start()
@@ -153,7 +163,7 @@ func main() {
 
 	select {
 	case sig := <-sigCh:
-		glog.Infof("signal received, shutting down", sig)
+		log.Printf("INFO: signal received, shutting down.", sig)
 		vdpaServer.stop()
 		return
 }}
@@ -163,50 +173,50 @@ func main() {
 // specifying file path with `go run`.
 var exampleData = []byte(`[{
     "pciAddress": "0000:82:00.2",
-    "socketpath": "/var/run/vdpa/vdpa-0"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-0"
 }, {
     "pciAddress": "0000:82:00.3",
-    "socketpath": "/var/run/vdpa/vdpa-1"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-1"
 }, {
     "pciAddress": "0000:82:00.4",
-    "socketpath": "/var/run/vdpa/vdpa-2"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-2"
 }, {
     "pciAddress": "0000:82:00.5",
-    "socketpath": "/var/run/vdpa/vdpa-3"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-3"
 }, {
     "pciAddress": "0000:82:00.6",
-    "socketpath": "/var/run/vdpa/vdpa-4"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-4"
 }, {
     "pciAddress": "0000:82:00.7",
-    "socketpath": "/var/run/vdpa/vdpa-5"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-5"
 }, {
     "pciAddress": "0000:82:01.0",
-    "socketpath": "/var/run/vdpa/vdpa-6"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-6"
 }, {
     "pciAddress": "0000:82:01.1",
-    "socketpath": "/var/run/vdpa/vdpa-7"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-7"
 }, {
     "pciAddress": "0000:82:01.2",
-    "socketpath": "/var/run/vdpa/vdpa-8"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-8"
 }, {
     "pciAddress": "0000:82:01.3",
-    "socketpath": "/var/run/vdpa/vdpa-9"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-9"
 }, {
     "pciAddress": "0000:82:01.4",
-    "socketpath": "/var/run/vdpa/vdpa-10"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-10"
 }, {
     "pciAddress": "0000:82:01.5",
-    "socketpath": "/var/run/vdpa/vdpa-11"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-11"
 }, {
     "pciAddress": "0000:82:01.6",
-    "socketpath": "/var/run/vdpa/vdpa-12"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-12"
 }, {
     "pciAddress": "0000:82:01.7",
-    "socketpath": "/var/run/vdpa/vdpa-13"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-13"
 }, {
     "pciAddress": "0000:82:02.0",
-    "socketpath": "/var/run/vdpa/vdpa-14"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-14"
 }, {
     "pciAddress": "0000:82:02.1",
-    "socketpath": "/var/run/vdpa/vdpa-15"
+    "socketpath": "/var/run/vdpa/vhost/vdpa-15"
 }]`)

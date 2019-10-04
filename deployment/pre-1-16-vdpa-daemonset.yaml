@@ -1,21 +1,16 @@
-apiVersion: apps/v1
+apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
   name: vdpa-daemon-amd64
   labels:
     tier: node
     app: vdpadpdk
-    name: vdpadpdk
 spec:
-  selector:
-    matchLabels:
-      name: vdpadpdk
   template:
     metadata:
       labels:
         tier: node
         app: vdpadpdk
-        name: vdpadpdk
     spec:
       nodeSelector:
         beta.kubernetes.io/arch: amd64
@@ -26,9 +21,6 @@ spec:
       - name: vdpadpdk-daemonset
         image: nfvpe/vdpa-daemonset
         imagePullPolicy: Never
-        startupProbe:
-          failureThreshold: 30
-          periodSeconds: 10
         securityContext:
           privileged: true
         volumeMounts:
@@ -48,9 +40,6 @@ spec:
       - name: vdpa-grpc-server
         image: nfvpe/vdpa-grpc-server
         imagePullPolicy: Never
-        startupProbe:
-          failureThreshold: 30
-          periodSeconds: 10
         securityContext:
           privileged: true
         volumeMounts:
