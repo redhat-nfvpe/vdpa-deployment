@@ -42,6 +42,10 @@ RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linux
 #RUN sed -i -e 's/LIBRTE_KNI=y/LIBRTE_KNI=n/' config/common_linuxapp
 #RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linuxapp
 
+# Add vhost patch
+COPY ./vdpa-dpdk-image/vhost_substitute.sh ./vhost_substitute.sh
+RUN ./vhost_substitute.sh
+
 RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
 
 #

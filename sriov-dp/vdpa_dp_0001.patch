@@ -1,0 +1,87 @@
+diff --git a/cmd/sriovdp/manager.go b/cmd/sriovdp/manager.go
+index e1f3c229..37db065d 100644
+--- a/cmd/sriovdp/manager.go
++++ b/cmd/sriovdp/manager.go
+@@ -19,6 +19,7 @@ import (
+ 	"fmt"
+ 	"io/ioutil"
+ 	"strconv"
++	"os"
+ 
+ 	"github.com/golang/glog"
+ 	"github.com/jaypipes/ghw"
+@@ -125,6 +126,7 @@ func (rm *resourceManager) initServers() error {
+ 		glog.Infof("New resource server is created for %s ResourcePool", rc.ResourceName)
+ 		rm.resourceServers = append(rm.resourceServers, s)
+ 	}
++	os.Rename("/var/run/vdpa/tmpPciList.dat", "/var/run/vdpa/pciList.dat")
+ 	return nil
+ }
+ 
+diff --git a/pkg/resources/factory.go b/pkg/resources/factory.go
+index c7282d5f..7b2d1cbb 100644
+--- a/pkg/resources/factory.go
++++ b/pkg/resources/factory.go
+@@ -16,6 +16,7 @@ package resources
+ 
+ import (
+ 	"fmt"
++	"os"
+ 
+ 	"github.com/golang/glog"
+ 	"github.com/intel/sriov-network-device-plugin/pkg/types"
+@@ -135,6 +136,13 @@ func (rf *resourceFactory) GetResourcePool(rc *types.ResourceConfig, deviceList
+ 		filteredDevice = rdmaDevices
+ 	}
+ 
++	f, err := os.OpenFile("/var/run/vdpa/tmpPciList.dat", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
++	if err != nil {
++		f = nil
++	} else {
++		defer f.Close()
++	}
++
+ 	devicePool := make(map[string]types.PciNetDevice, 0)
+ 	apiDevices := make(map[string]*pluginapi.Device)
+ 	for _, dev := range filteredDevice {
+@@ -146,6 +154,10 @@ func (rf *resourceFactory) GetResourcePool(rc *types.ResourceConfig, deviceList
+ 			dev.GetVendor(),
+ 			dev.GetDeviceCode(),
+ 			dev.GetDriver())
++		if f != nil {
++			_, _ = f.WriteString(pciAddr)
++			_, _ = f.WriteString("\n")
++		}
+ 	}
+ 
+ 	rPool := newResourcePool(rc, apiDevices, devicePool)
+diff --git a/pkg/utils/utils.go b/pkg/utils/utils.go
+index 7c96ecbe..5f480509 100644
+--- a/pkg/utils/utils.go
++++ b/pkg/utils/utils.go
+@@ -66,12 +66,21 @@ func GetPfName(pciAddr string) (string, error) {
+ 			path := filepath.Join(sysBusPci, pciAddr, "net")
+ 			files, err = ioutil.ReadDir(path)
+ 			if err != nil {
++				if os.IsNotExist(err) {
++					path := filepath.Join(sysBusPci, pciAddr, "physfn/virtio0/net")
++					files, err = ioutil.ReadDir(path)
++					if err != nil {
++						return "", err
++					}
++					if len(files) < 1 {
++						return "", fmt.Errorf("no interface name found for device %s", pciAddr)
++					}
++					return files[0].Name(), nil
++				}
+ 				return "", err
++			} else if len(files) > 0 {
++				return files[0].Name(), nil
+ 			}
+-			if len(files) < 1 {
+-				return "", fmt.Errorf("no interface name found for device %s", pciAddr)
+-			}
+-			return files[0].Name(), nil
+ 		}
+ 		return "", err
+ 	} else if len(files) > 0 {
