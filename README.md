@@ -3,7 +3,7 @@ GO code and example YAML files to deploy vDPA VFs in a container running in kube
 
    * [Overview](#overview)
    * [Quick Start](#quick-start)
-      * [Kubernetes < 1.16](#kubernetes-<-1.16)
+      * [Kubernetes < 1.16](#kubernetes--116)
    * [vdpa-dpdk-image](#vdpa-dpdk-image)
    * [server-image](#server-image)
       * [client-image](#client-image)
@@ -575,9 +575,7 @@ To debug the pod, view the log (while pod is running):
 ```
 
 
-By default, the DPDK based container ‘dpdk-app-centos’ is running the DPDK `l3fwd`
-sample application (see https://doc.dpdk.org/guides/sample_app_ug/l3_forward.html).
-This sample application does some simple routing based on a hard-coded routing table.
+`l3fwd` does some simple routing based on a hard-coded routing table.
 The following subnets are assigned to interfaces:
 ```
    Interface 0: Route 192.18.0.0 / 24
