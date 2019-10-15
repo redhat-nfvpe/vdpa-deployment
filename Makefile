@@ -1,5 +1,4 @@
 GOBIN=${PWD}/bin
-TESTPATCH=1
 
 # Default to build
 default: server client

@@ -1,0 +1,85 @@
+hash: 0794d83725afacf6a30fcbbefe58ea32c12dbcedcffffcd2c9a21036bcca5d1e
+updated: 2019-07-25T12:32:04.793365038+01:00
+imports:
+- name: github.com/containernetworking/cni
+  version: dc953e2fd91f9bc624b03cf9ea3706796bfee920
+  subpackages:
+  - pkg/invoke
+  - pkg/skel
+  - pkg/testutils
+  - pkg/types
+  - pkg/types/020
+  - pkg/types/current
+  - pkg/version
+- name: github.com/containernetworking/plugins
+  version: 2b6808807facbadf4f1190d7665d7e1fc19efd93
+  subpackages:
+  - pkg/ip
+  - pkg/ipam
+  - pkg/ns
+  - pkg/testutils
+  - pkg/utils/hwaddr
+  - pkg/utils/sysctl
+- name: github.com/coreos/go-iptables
+  version: 78b5fff24e6df8886ef8eca9411f683a884349a5
+  subpackages:
+  - iptables
+- name: github.com/onsi/ginkgo
+  version: 7f8ab55aaf3b86885aa55b762e803744d1674700
+  subpackages:
+  - config
+  - internal/codelocation
+  - internal/containernode
+  - internal/failer
+  - internal/leafnodes
+  - internal/remote
+  - internal/spec
+  - internal/specrunner
+  - internal/suite
+  - internal/testingtproxy
+  - internal/writer
+  - reporters
+  - reporters/stenographer
+  - types
+- name: github.com/onsi/gomega
+  version: 2152b45fa28a361beba9aab0885972323a444e28
+  subpackages:
+  - format
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/oraclematcher
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
+- name: github.com/safchain/ethtool
+  version: 42ed695e3de80b9d695f280295fd7994639f209d
+- name: github.com/stretchr/testify
+  version: ffdc059bfe9ce6a4e144ba849dbedead332c6053
+  subpackages:
+  - assert
+  - mock
+- name: github.com/vishvananda/netlink
+  version: b1e98597921720cee4147d6476110fc8fc56072d
+  subpackages:
+  - nl
+- name: github.com/vishvananda/netns
+  version: 54f0e4339ce73702a0607f49922aaa1e749b418d
+- name: golang.org/x/sys
+  version: fae7ac547cb717d141c433a2a173315e216b64c4
+  subpackages:
+  - unix
+testImports:
+- name: github.com/davecgh/go-spew
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  subpackages:
+  - spew
+- name: github.com/pmezard/go-difflib
+  version: 5d4384ee4fb2527b0a1256a821ebfc92f91efefc
+  subpackages:
+  - difflib
+- name: github.com/stretchr/objx
+  version: c61a9dfcced1815e7d40e214d00d1a8669a9f58c
