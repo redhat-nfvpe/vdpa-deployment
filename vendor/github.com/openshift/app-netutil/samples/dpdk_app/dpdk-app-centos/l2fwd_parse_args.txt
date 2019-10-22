@@ -1,0 +1,9 @@
+#if 0
+	ret = l2fwd_parse_args(argc, argv);
+#else
+	if (argc > 1) {
+		ret = l2fwd_parse_args(argc, argv);
+	} else {
+		ret = l2fwd_parse_args(myArgc, myArgv);
+	}
+#endif
