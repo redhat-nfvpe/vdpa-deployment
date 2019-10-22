@@ -20,10 +20,10 @@ index 19fb5bf9..018fb066 100644
  		if err = utils.SaveNetConf(args.ContainerID, config.DefaultCNIDir, args.IfName, netConf); err != nil {
  			return fmt.Errorf("error saving NetConf %q", err)
 diff --git a/glide.yaml b/glide.yaml
-index 4a3d9b85..128e1064 100644
+index 4a3d9b85..d183d098 100644
 --- a/glide.yaml
 +++ b/glide.yaml
-@@ -14,6 +14,12 @@ import:
+@@ -14,6 +14,20 @@ import:
    - pkg/ip
    - pkg/ipam
    - pkg/ns
@@ -33,10 +33,18 @@ index 4a3d9b85..128e1064 100644
 +  - pkg/annotations
 +  - pkg/k8sclient
 +  - pkg/types
++- package: github.com/golang/protobuf
++  version: 6c65a5562fc06764971b7c5d05c76c75e84bdbf7
++  subpackages:
++  - proto
++  - ptypes
++  - ptypes/any
++  - ptypes/duration
++  - ptypes/timestamp
  - package: github.com/onsi/ginkgo
    version: 7f8ab55aaf3b86885aa55b762e803744d1674700
    subpackages:
-@@ -45,6 +51,10 @@ import:
+@@ -45,6 +59,10 @@ import:
    - matchers/support/goraph/node
    - matchers/support/goraph/util
    - types

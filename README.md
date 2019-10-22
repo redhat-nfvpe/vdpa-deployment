@@ -4,6 +4,7 @@ GO code and example YAML files to deploy vDPA VFs in a container running in kube
    * [Overview](#overview)
    * [Quick Start](#quick-start)
       * [Kubernetes < 1.16](#kubernetes--116)
+      * [Prerequisties](#prerequisties)
    * [vdpa-dpdk-image](#vdpa-dpdk-image)
    * [server-image](#server-image)
       * [client-image](#client-image)
@@ -16,6 +17,11 @@ GO code and example YAML files to deploy vDPA VFs in a container running in kube
          * [SR-IOV Device Plugin Daemonset](#sr-iov-device-plugin-daemonset)
       * [sriov-cni](#sriov-cni)
    * [Sample Application](#sample-application)
+      * [dpdk-app-centos](#dpdk-app-centos)
+      * [Scylla](#scylla)
+         * [Scylla Init-Container](#scylla-init-container)
+         * [Scylla Docker Image](#scylla-docker-image)
+         * [Scylla Deployment](#scylla-deployment)
 
 ## Overview
 vhost Data Path Acceleration (vDPA) utilizes virtio ring compatible
@@ -108,6 +114,19 @@ rollback these changes:
    ls deployment/k8s-pre-1-16/
     sriovdp-vdpa-daemonset.yaml  vdpa-daemonset.yaml
 ```
+
+### Prerequisties
+This setup assumes:
+* Running on baremetal.
+* Kubernetes is installed.
+* Multus CNI is installed.
+* vDPA VFs have already been created on the PFs being used.
+
+For reference, this repo was developed and tested on:
+* Fedora 29 - kernel 5.2.17-100.fc29.x86_64
+* GO: go1.12.7
+* Docker: 19.03.2
+* Kubernetes: v1.16.1
 
 ## vdpa-dpdk-image
 vDPA leverages existing userspace virtio/vHost protocol to negotiate
@@ -298,11 +317,6 @@ possible, the changes are only the bare minimum to get vDPA to
 work and extensive error checking was not included.
 
 ### vDPA Setup
-This setup assumes:
-* Running on baremetal.
-* Kubernetes and Multus CNI are installed.
-* vDPA VFs have already been created on the PFs being used.
-
 This test setup uses one physical NIC (PF) with the associated VFs
 broken into two pools (via the configMaps and Network-Attachment
 Definitions below).
@@ -319,9 +333,9 @@ binary into the image. This logic was also reused.
 
 The changes in the patch file include:
 * When detecting the VFs based on the input selector criteria, the
-  code collects data from the SR-IOV VF from
-  `/sys/bus/pci/devices/<PCIAddr>/net/`. For vDPA, the same data is
-  found in `/sys/bus/pci/devices/<PCIAddr>/physfn/virtio0/net/`. So
+  code verifies the SR-IOV VF from
+  `/sys/bus/pci/devices/<VF_PCIAddr>/physfn/net/`. For vDPA, the same data is
+  found in `/sys/bus/pci/devices/<VF_PCIAddr>/physfn/virtio0/net/`. So
   code was added to look in additional subdirectory for data.
 * Once final list of VFs has been discovered, write the list to a
   file (`/var/run/vdpa/pciList.dat`) so the `nfvpe/vdpa-daemonset`
@@ -541,9 +555,25 @@ to leverage the Userspace CNI to share this configuration data with the containe
 
 Once the above data is in the POD, a library has been written with a C and a
 GO API that abstracts out where to look and how to process all data passed in.
-This code is in https://github.com/openshift/app-netutil. The ‘dpdk-app-centos’
-container image includes this library and uses the information gathered to call
-`l3fwd` DPDK sample application with the dynamic data provided.
+This code is in https://github.com/openshift/app-netutil.
+
+There are two container workloads that are being used that leverage the
+`app-netutil`:
+* `dpdk-app-centos`
+* Scylla Docker Image
+
+### dpdk-app-centos
+The `dpdk-app-centos` container image includes the `app-netutil` library and
+uses the information gathered to call one of the DPDK sample application with
+the dynamic data provided. Currently, `dpdk-app-centos` supports the following
+DPDK sample application:
+* `l2fwd`
+* `l3fwd` (default)
+* `testpmd`
+
+Which DPDK sample application is run is controlled by an environmental variable
+(DPDK_SAMPLE_APP) set in the pod spec. If not set, the image defaults to using
+`l3fwd`, which is what is discussed below.
 
 The files needed to build the container are also in the ‘app-netutil’ repo.
 Download the repo:
@@ -574,7 +604,6 @@ To debug the pod, view the log (while pod is running):
    sudo cat /var/log/pods/default_vdpa-pod-1_<TAB>/vdpa-example/0.log
 ```
 
-
 `l3fwd` does some simple routing based on a hard-coded routing table.
 The following subnets are assigned to interfaces:
 ```
@@ -594,3 +623,90 @@ will be the first interface assigned to DPDK, and thus will get route 192.18.0.0
 assigned to it. VF from network `vdpa-dpdk-b` will be the second interface assigned
 to DPDK, and thus will get route 192.18.1.0 / 24 assigned to it. At this time, this
 is not configurable.
+
+### Scylla
+This is a work in progress and is not fully working with vDPA at
+the moment. The remaining notes are where we are at the moment.
+
+#### Scylla Init-Container
+This repo contains code that builds the `app-netutil` library in
+an init container, which gathers the needed vDPA socketfiles. This
+data is written to a file (`/var/run/scylla/scylla_dpdk_dynamic.conf`)
+that can used by the scylla image. The contents of this file look
+something like the following, where the path will vary depending on
+the VFs injected into the container:
+```
+   sudo cat /var/run/scylla/scylla_dpdk_dynamic.conf
+   --vdev=net_virtio_user0,path=/var/lib/cni/usrspcni/vdpa-0 --vdev=net_virtio_user1,path=/var/lib/cni/usrspcni/vdpa-7
+```
+
+To build the Scylla init-container image, run:
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
+   make scylla-image
+   -- OR --
+   make all
+```
+
+#### Scylla Docker Image
+
+To build the Scylla image, download the upstream repo (instructions
+located at: https://www.scylladb.com/download/open-source/), apply
+a local patch, and build image:
+```
+   cd ~
+   git clone https://github.com/scylladb/scylla.git
+   cd ~/scylla
+   cp $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/scylla-init-container/scylla_docker_0001.patch .
+   patch -p1 < scylla_docker_0001.patch
+
+   cd dist/docker/redhat/
+   docker build -t scylla .
+```
+
+The patch `scylla_docker_0001.patch` inserts about 10 lines of bash code
+to the script `dist/docker/redhat/scylla-service.sh`. This inserted code
+reads the file generated by the init-container and modifies the variable
+`SCYLLA_ARGS`, which was initialized from `etc/sysconfig/scylla-server`
+as:
+```
+   cat etc/sysconfig/scylla-server
+   :
+   # scylla arguments
+   SCYLLA_ARGS="--log-to-syslog 0 --log-to-stdout 1 --default-log-level info --network-stack posix"
+   :
+```
+
+The string "posix" is replaced so `SCYLLA_ARGS` is ultimately set as:
+```
+   "--log-to-syslog 0 --log-to-stdout 1 --default-log-level info --network-stack native --dpdk-pmd --argv0 '--vdev=net_virtio_user0,path=/var/lib/cni/usrspcni/vdpa-0 --vdev=net_virtio_user1,path=/var/lib/cni/usrspcni/vdpa-7'"
+```
+
+NOTE: There is currently not any error checking. If `SCYLLA_ARGS` is
+not the default as described above, the variable may not update properly.
+
+#### Scylla Deployment
+To deploy the Scylla image with the Init-Container, make sure the steps
+are followed above to build and deploy the SR-IOV Device Plugin, SR-IOV CNI,
+and vDPA Daemonset, all with vDPA changes.
+
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
+   kubectl create -f ./deployment/scylla-pod.yaml
+```
+
+NOTE: For testing the Init-Container, since vDPA is not working yet,
+the line `#command: ["sleep", "infinity"]` can be uncommented. This
+will allow the Init-Container of run and generate the file. Then log
+into the Scylla pod and run the script manually. Update the script to
+echo the contents of the variable and not execute `scylla` at this
+time:
+```
+   kubectl exec -it scylla-pod -- sh
+   sh-4.2# vi scylla-service.sh
+   :
+   echo "END:   $SCYLLA_ARGS"
+   #exec /usr/bin/scylla $SCYLLA_ARGS $SEASTAR_IO $DEV_MODE $CPUSET $SCYLLA_DOCKER_ARGS
+
+   sh-4.2# ./scylla-service.sh
+```
