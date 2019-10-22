@@ -1,0 +1,17 @@
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: sriov-net-a
+  annotations:
+    k8s.v1.cni.cncf.io/resourceName: intel.com/intel_sriov_dpdk_a
+spec:
+  config: '{
+  "type": "sriov",
+  "cniVersion": "0.3.1",
+  "name": "sriov-network-a",
+  "vlan": 100,
+  "vlanQoS": 1,
+  "max_tx_rate": 100,
+  "spoofchk": "off",
+  "trust": "on"
+}'

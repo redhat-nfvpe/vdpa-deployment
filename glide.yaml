@@ -1,11 +1,37 @@
 package: github.com/redhat-nfvpe/vdpa-deployment
 import:
+- package: github.com/containernetworking/cni
+  version: ^0.7.1
+  subpackages:
+  - pkg/skel
+  - pkg/types/current
+- package: github.com/golang/glog
 - package: github.com/golang/protobuf
+  version: ^1.3.2
   subpackages:
   - proto
-- package: google.golang.org/grpc
+- package: github.com/intel/sriov-cni
+  version: ^2.1.0
   subpackages:
-  - codes
-  - credentials
-  - status
-  - testdata
+  - pkg/types
+- package: github.com/openshift/app-netutil
+  subpackages:
+  - lib/v1alpha
+  - pkg/types
+- package: golang.org/x/net
+  subpackages:
+  - context
+- package: golang.org/x/sys
+  version: 3b5209105503162ded1863c307ac66fec31120dd
+  subpackages:
+  - unix
+  - windows
+- package: google.golang.org/grpc
+  version: ^1.24.0
+- package: k8s.io/api
+  subpackages:
+  - core/v1
+- package: k8s.io/client-go
+  version: ^12.0.0
+  subpackages:
+  - kubernetes
