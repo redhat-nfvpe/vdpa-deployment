@@ -1,24 +1,23 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: vdpa-pod-1
+  name: scylla-pod
   annotations:
     k8s.v1.cni.cncf.io/networks: vdpa-net-a, vdpa-net-b
 spec:
   containers:
-  - name: vdpa-example
-    image: dpdk-app-centos:latest
+  - name: scylla-pod
+    image: scylla:latest
     imagePullPolicy: Never
     securityContext:
       privileged: true
     volumeMounts:
-    - mountPath: /etc/podinfo
-      name: podinfo
-      readOnly: false
     - mountPath: /var/lib/cni/usrspcni/
       name: shared-dir
     - mountPath: /dev/hugepages
       name: hugepage
+    - mountPath: /var/run/scylla/
+      name: shared-scylla-dir
     resources:
       requests:
         memory: 1Gi
@@ -28,16 +27,21 @@ spec:
         hugepages-1Gi: 2Gi
         intel.com/intel_vdpa_dpdk_a: '1'
         intel.com/intel_vdpa_dpdk_b: '1'
-    # Uncomment to control which DPDK App is running in container.
-    # If not provided, l3fwd is default.
-    #   Options: l2fwd l3fwd testpmd
-    #env:
-    #- name: DPDK_SAMPLE_APP
-    #  value: "testpmd"
-    #
-    # Uncomment to debug DPDK App or to run manually to change
-    # DPDK command line options.
     #command: ["sleep", "infinity"]
+  initContainers:
+  - name: scylla-init-pod
+    image: nfvpe/scylla-init-container:latest
+    imagePullPolicy: Never
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /etc/podinfo
+      name: podinfo
+      readOnly: false
+    - mountPath: /var/lib/cni/usrspcni/
+      name: shared-dir
+    - mountPath: /var/run/scylla/
+      name: shared-scylla-dir
   volumes:
   - name: podinfo
     downwardAPI:
@@ -51,6 +55,9 @@ spec:
   - name: shared-dir
     hostPath:
       path: /var/run/vdpa/vhost/
+  - name: shared-scylla-dir
+    hostPath:
+      path: /var/run/scylla/
   - name: hugepage
     emptyDir:
       medium: HugePages

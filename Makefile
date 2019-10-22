@@ -2,8 +2,8 @@ GOBIN=${PWD}/bin
 
 # Default to build
 default: server client
-local: server client
-all: server-image vdpa-image sriov-dp sriov-cni
+local: server client scylla-init
+all: server-image vdpa-image make scylla-image sriov-dp sriov-cni
 
 help:
 	@echo "Make Targets:"
@@ -12,20 +12,23 @@ help:
 	@echo " make server-image   - Make the docker image that runs the gRPC Server code."
 	@echo " make vdpa-image     - Make the docker image that runs the DPDK vDPA sample"
 	@echo "                       APP. Manages the socketfiles for host."
+	@echo " make scylla-image   - Make the docker image that runs the Scylla Init code."
 	@echo " make sriov-dp       - Make the docker image that runs the SR-IOV Device"
 	@echo "                       Plugin with vDPA changes integrated."
 	@echo " make sriov-cni      - Make the SR-IOV CNI binary with the vDPA changes"
 	@echo "                       integrated. Binary needs to copied to proper location"
 	@echo "                       once complete (i.e. - /opt/cni/bin/.)."
 	@echo " make all            - Build all images for a deployment. Same as:"
-	@echo "                         make server-image; make vdpa-image; make sriov-dp; make sriov-cni"
+	@echo "                         make server-image; make vdpa-image; make scylla-image;"
+	@echo "                         make sriov-dp; make sriov-cni;"
 	@echo ""
 	@echo "Local/Debug (not used in actual deployment):"
 	@echo " make server         - Build the GO code that handles the gRPC Server."
 	@echo " make client         - Build the GO code that handles the gRPC Client (test code)."
 	@echo " make client-image   - Make the docker image that runs the gRPC Client test code."
+	@echo " make scylla-init    - Build the GO code that runs in the Scylla Init container."
 	@echo " make local          - Build the GO code locally, same as:"
-	@echo "                         make server; make client"
+	@echo "                         make server; make client: make scylla-init;"
 	@echo ""
 	@echo "Other:"
 	@echo " glide update --strip-vendor - Recalculate dependancies and update *vendor\*"
@@ -49,6 +52,8 @@ client-image:
 vdpa-image:
 	@docker build --rm -t nfvpe/vdpa-daemonset -f ./vdpa-dpdk-image/Dockerfile .
 
+scylla-image:
+	@docker build --rm -t nfvpe/scylla-init-container -f ./scylla-init-container/Dockerfile .
 
 
 export ORG_PATH="github.com/intel"
@@ -77,7 +82,9 @@ sriov-cni:
 		echo "Build CNI binary"; \
 		make; \
 		cp build/sriov $(GOBIN)/.; \
+		echo ""; \
 		echo "Run \"sudo cp bin/sriov /opt/cni/bin/.\""; \
+		echo ""; \
 		popd > /dev/null; \
 	fi
 
@@ -100,9 +107,12 @@ sriov-dp:
 		popd > /dev/null; \
 	fi
 
+scylla-init:
+	@cd scylla-init-container && go build -o ${GOBIN}/scylla-init -v
+
 clean:
 	@rm -rf bin/
 	@rm -rf gopath/
 
-.PHONY: build clean server client server-image client-image sriov-cni sriov-dp
+.PHONY: build clean server client server-image client-image sriov-cni sriov-dp scylla-init make scylla-image
 

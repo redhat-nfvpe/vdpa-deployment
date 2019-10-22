@@ -1,0 +1,21 @@
+diff --git a/dist/docker/redhat/scylla-service.sh b/dist/docker/redhat/scylla-service.sh
+index eebff9dbb..943d27334 100755
+--- a/dist/docker/redhat/scylla-service.sh
++++ b/dist/docker/redhat/scylla-service.sh
+@@ -10,4 +10,16 @@ for f in /etc/scylla.d/*.conf; do
+     . "$f"
+ done
+ 
++SCYLLA_DPDK_DYNAMIC_FILE="/var/run/vdpa/scylla/scylla_dpdk_dynamic.conf"
++if [ -f $SCYLLA_DPDK_DYNAMIC_FILE ]; then
++   SCYLLA_DPDK_DYNAMIC=`cat $SCYLLA_DPDK_DYNAMIC_FILE`
++
++   if [[ ! -z "${SCYLLA_DPDK_DYNAMIC}" ]]; then
++      if [[ $SCYLLA_ARGS =~ "posix" ]]; then
++         SCYLLA_ARGS=${SCYLLA_ARGS/posix/native --dpdk-pmd --argv0 \'$SCYLLA_DPDK_DYNAMIC\'}
++      fi
++   fi
++   rm $SCYLLA_DPDK_DYNAMIC_FILE
++fi
++
+ exec /usr/bin/scylla $SCYLLA_ARGS $SEASTAR_IO $DEV_MODE $CPUSET $SCYLLA_DOCKER_ARGS
