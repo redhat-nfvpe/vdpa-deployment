@@ -16,12 +16,14 @@ GO code and example YAML files to deploy vDPA VFs in a container running in kube
          * [ConfigMap](#configmap)
          * [SR-IOV Device Plugin Daemonset](#sr-iov-device-plugin-daemonset)
       * [sriov-cni](#sriov-cni)
+        * [sriov-cni Image](#sriov-cni-image)
    * [Sample Application](#sample-application)
       * [dpdk-app-centos](#dpdk-app-centos)
       * [Scylla](#scylla)
          * [Scylla Init-Container](#scylla-init-container)
          * [Scylla Docker Image](#scylla-docker-image)
          * [Scylla Deployment](#scylla-deployment)
+   * [Docker Hub](#docker-hub)
 
 ## Overview
 vhost Data Path Acceleration (vDPA) utilizes virtio ring compatible
@@ -541,6 +543,23 @@ Changes in the new files:
    * Make gRPC call to vDPA-DPDK gRPC Server to return the unix socketfile
      associated with a given PCI Address of a VF.
 
+#### sriov-cni Image
+
+There were some issues building SR-IOV CNI as packaged in this repo. To
+help get around this, the SR-IOV CNI can be built into a docker image, then
+the image runs as a DaemonSet and installs the CNI binary in `/opt/cni/bin/`.
+
+To build SR-IOV CNI in a Docker image:
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
+   make sriov-cni-image
+```
+
+To run:
+```
+   kubectl create -f ./deployment/sriov-cni-daemonset.yaml
+```
+
 ## Sample Application
 Once the two DaemonSets (SR-IOV Device Plugin and vDPA DPDK Application)
 are up and running, the sample application that is using the vDPA interfaces
@@ -709,4 +728,21 @@ time:
    #exec /usr/bin/scylla $SCYLLA_ARGS $SEASTAR_IO $DEV_MODE $CPUSET $SCYLLA_DOCKER_ARGS
 
    sh-4.2# ./scylla-service.sh
+```
+
+## Docker Hub
+All the images have been pushed to Docker Hub. Check the state of the upstream
+image verses the latest commits to the source code repos. This code is changing
+rapidly and the image may be out of data.
+
+None of the yaml files have been updated to run the download images, so the yaml
+files will need to be prefixed with 'bmcfall/' in all the image names.
+
+The following image can be retrieved:
+```
+   docker pull bmcfall/dpdk-app-centos:latest
+   docker pull bmcfall/sriov-cni:latest
+   docker pull bmcfall/sriov-device-plugin:latest
+   docker pull bmcfall/vdpa-daemonset:latest
+   docker pull bmcfall/vdpa-grpc-server:latest
 ```

@@ -27,6 +27,8 @@ help:
 	@echo " make client         - Build the GO code that handles the gRPC Client (test code)."
 	@echo " make client-image   - Make the docker image that runs the gRPC Client test code."
 	@echo " make scylla-init    - Build the GO code that runs in the Scylla Init container."
+	@echo " sriov-cni-image     - Build the SR-IOV CNI as a docker image. When run as a"
+	@echo "                       daemonset, will install the built CNI binary in /opt/cni/bin/."
 	@echo " make local          - Build the GO code locally, same as:"
 	@echo "                         make server; make client: make scylla-init;"
 	@echo ""
@@ -88,6 +90,29 @@ sriov-cni:
 		popd > /dev/null; \
 	fi
 
+sriov-cni-image: GOPATH=${PWD}/gopath
+sriov-cni-image:
+	@if [ ! -d gopath/src/$(REPO_PATH_CNI) ]; then \
+		echo "Downloading $(REPO_PATH_CNI)"; \
+		mkdir -p gopath/src/$(ORG_PATH); \
+		mkdir -p $(GOBIN); \
+		pushd gopath/src/ > /dev/null; \
+		go get $(REPO_PATH_CNI) 2>&1 > /tmp/sriov-cni.log || echo "Can ignore no GO files."; \
+		popd > /dev/null; \
+		echo "Patching $(REPO_PATH_CNI)"; \
+		cp sriov-cni/* gopath/src/$(REPO_PATH_CNI)/.; \
+		pushd gopath/src/$(REPO_PATH_CNI)/ > /dev/null; \
+		mkdir -p pkg/vdpa/; \
+		mv vdpadpdk-client.go pkg/vdpa/.; \
+		mv vdpa.go pkg/vdpa/.; \
+		patch -p1 < vdpa_cni_0001.patch; \
+		echo "Glide Update"; \
+		glide update --strip-vendor; \
+		echo "Build CNI binary"; \
+		docker build -t sriov-cni -f ./Dockerfile .; \
+		popd > /dev/null; \
+	fi
+
 sriov-dp: GOPATH=${PWD}/gopath
 sriov-dp:
 	@if [ ! -d gopath/src/$(REPO_PATH_DP) ]; then \
@@ -114,5 +139,5 @@ clean:
 	@rm -rf bin/
 	@rm -rf gopath/
 
-.PHONY: build clean server client server-image client-image sriov-cni sriov-dp scylla-init make scylla-image
+.PHONY: build clean server client server-image client-image sriov-cni sriov-dp scylla-init scylla-image sriov-cni-image
 
