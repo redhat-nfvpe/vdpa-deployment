@@ -4,7 +4,7 @@
 #  -- OR --
 #  make all
 #  -- OR --
-#  docker build --rm -t nfvpe/scylla-init-container -f ./scylla-init-container/Dockerfile .
+#  docker build --rm -t scylla-init-container -f ./scylla-init-container/Dockerfile .
 #
 
 # -------- Builder stage.

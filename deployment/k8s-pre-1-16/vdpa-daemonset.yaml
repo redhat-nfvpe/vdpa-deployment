@@ -19,7 +19,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: vdpadpdk-daemonset
-        image: nfvpe/vdpa-daemonset
+        image: vdpa-daemonset
         imagePullPolicy: Never
         securityContext:
           privileged: true
@@ -38,7 +38,7 @@ spec:
             hugepages-1Gi: 2Gi
         #command: ["sleep", "infinity"]
       - name: vdpa-grpc-server
-        image: nfvpe/vdpa-grpc-server
+        image: vdpa-grpc-server
         imagePullPolicy: Never
         securityContext:
           privileged: true

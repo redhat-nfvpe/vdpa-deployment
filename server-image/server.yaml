@@ -5,7 +5,7 @@ metadata:
 spec:
   containers:
   - name: vdpa-grpc-server
-    image: nfvpe/vdpa-grpc-server
+    image: vdpa-grpc-server
     imagePullPolicy: Never
     volumeMounts:
       - name: vhostsock

@@ -50,16 +50,16 @@ the SR-IOV CNI to the proper locacation:
 ```
 
 `make all` builds the following images/binaries:
-* `nfvpe/vdpa-daemonset` docker image: Located in the
+* `vdpa-daemonset` docker image: Located in the
   **vdpa-dpdk-image** directory. This image runs as a Daemonset on each node
   and manages the virtio unix socketfiles used by the virtio control channel.
   See [vdpa-dpdk-image](#vdpa-dpdk-image).
-* `nfvpe/vdpa-grpc-server` docker image: Located in the **server-image**
+* `vdpa-grpc-server` docker image: Located in the **server-image**
   directory. This image is also runs in the same Daemonset on each node as
-  `nfvpe/vdpa-daemonset`. The `nfvpe/vdpa-grpc-server` image provides a gRPC
+  `vdpa-daemonset`. The `vdpa-grpc-server` image provides a gRPC
   Server for the SR-IOV CNI to call to retrieve the VF PCI Address to unix
   socketfile mapping. See [server-image](#server-image).
-* `nfvpe/sriov-device-plugin` docker image: Located in the **sriov-dp**
+* `sriov-device-plugin` docker image: Located in the **sriov-dp**
   directory. This image takes the upstream SR-IOV Device Plugin and applies
   some local patches to enable it to work with vDPA as well. See
   [sriov-dp](#sriov-dp).
@@ -145,7 +145,7 @@ provided by the DPDK library (examples/vdpa) which is built and run
 in a container as a DaemonSet.
 
 The **vdpa-dpdk-image** directory contains the files to build the
-`nfvpe/vdpa-daemonset` docker image. This image runs the vDPA sample
+`vdpa-daemonset` docker image. This image runs the vDPA sample
 application from DPDK. The `entrypoint.sh` script waits for a the set
 of PCI Addresses of the vDPA VFs to be written to the file 
 `/var/run/vdpa/pciList.dat`, which is provided by the SR-IOV Device
@@ -195,7 +195,7 @@ To build the docker image:
    make all
 ```
 
-This image will be deployed along with the `nfvpe/vdpa-grpc-server`
+This image will be deployed along with the `vdpa-grpc-server`
 docker image using the following command:
 ```
    cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
@@ -204,7 +204,7 @@ docker image using the following command:
 
 ## server-image
 The **server-image** directory contains the files to build the
-`nfvpe/vdpa-grpc-server` docker image. This image runs a gRPC Server
+`vdpa-grpc-server` docker image. This image runs a gRPC Server
 that is called from a CNI trying to add a vDPA VF to a container.
 In this solution, the SR-IOV CNI has been modified with gRPC Client
 code to call this server (see [sriov-cni](#sriov-cni)) and retrieve
@@ -219,7 +219,7 @@ To build the docker image:
    make all
 ```
 
-This image will be deployed along with the `nfvpe/vdpa-daemonset`
+This image will be deployed along with the `vdpa-daemonset`
 docker image using the following command:
 ```
    cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
@@ -338,7 +338,7 @@ The changes in the patch file include:
   found in `/sys/bus/pci/devices/<VF_PCIAddr>/physfn/virtio0/net/`. So
   code was added to look in additional subdirectory for data.
 * Once final list of VFs has been discovered, write the list to a
-  file (`/var/run/vdpa/pciList.dat`) so the `nfvpe/vdpa-daemonset`
+  file (`/var/run/vdpa/pciList.dat`) so the `vdpa-daemonset`
   image can use it to manage the associated unix socketfiles.
 
 To deploy the SR-IOV Device Plugin, the following steps must be taken:
