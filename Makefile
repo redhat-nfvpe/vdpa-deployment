@@ -44,16 +44,16 @@ client:
 
 
 server-image:
-	@docker build --rm -t nfvpe/vdpa-grpc-server -f ./server-image/Dockerfile .
+	@docker build --rm -t vdpa-grpc-server -f ./server-image/Dockerfile .
 
 client-image:
-	@docker build --rm -t nfvpe/vdpa-grpc-client -f ./client-image/Dockerfile .
+	@docker build --rm -t vdpa-grpc-client -f ./client-image/Dockerfile .
 
 vdpa-image:
-	@docker build --rm -t nfvpe/vdpa-daemonset -f ./vdpa-dpdk-image/Dockerfile .
+	@docker build --rm -t vdpa-daemonset -f ./vdpa-dpdk-image/Dockerfile .
 
 scylla-image:
-	@docker build --rm -t nfvpe/scylla-init-container -f ./scylla-init-container/Dockerfile .
+	@docker build --rm -t scylla-init-container -f ./scylla-init-container/Dockerfile .
 
 
 export ORG_PATH="github.com/intel"
@@ -102,7 +102,7 @@ sriov-dp:
 		patch -p1 < vdpa_dp_0001.patch; \
 		echo "Build binary"; \
 		make; \
-		echo "Build docker image \"nfvpe/sriov-device-plugin\""; \
+		echo "Build docker image \"sriov-device-plugin\""; \
 		make image; \
 		popd > /dev/null; \
 	fi

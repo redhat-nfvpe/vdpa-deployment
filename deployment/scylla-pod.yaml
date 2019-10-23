@@ -30,7 +30,7 @@ spec:
     #command: ["sleep", "infinity"]
   initContainers:
   - name: scylla-init-pod
-    image: nfvpe/scylla-init-container:latest
+    image: scylla-init-container:latest
     imagePullPolicy: Never
     securityContext:
       privileged: true

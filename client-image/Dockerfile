@@ -2,7 +2,7 @@
 # github.com/redhat-nfvpe/vdpa-deployment repo:
 #  make server-image
 #  -- OR --
-#  docker build --rm -t nfvpe/vdpa-grpc-client -f ./client-image/Dockerfile .
+#  docker build --rm -t vdpa-grpc-client -f ./client-image/Dockerfile .
 #
 
 # -------- Builder stage.

@@ -1,5 +1,5 @@
 # To build:
-#  docker build --rm -t nfvpe/vdpa-daemonset .
+#  docker build --rm -t vdpa-daemonset .
 #
 
 # -------- Builder stage.
