@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sriovdp-config
+  namespace: kube-system
+data:
+  config.json: |
+    {
+        "resourceList": [{
+                "resourceName": "intel_vdpa_dpdk_a",
+                "selectors": {
+                    "vendors": ["1af4"],
+                    "devices": ["1041"],
+                    "drivers": ["vfio-pci"]
+                }
+            }
+        ]
+    }
+
