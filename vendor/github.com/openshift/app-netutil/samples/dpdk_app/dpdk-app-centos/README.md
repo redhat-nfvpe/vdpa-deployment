@@ -17,7 +17,7 @@ CNI Library (cnivpp) creates interfaces on the host, like a vhost-user or
 a memif interface, adds the host side of the interface to a local network,
 like a L2 bridge, then copies information needed in the container into
 annotations. The container, like this one, boots up and reads the
-annotatations (via the app-netuilt) and runs a DPDK application.
+annotatations (via the app-netutil) and runs a DPDK application.
 
 
 # Build Instructions for dpdk-app-centos Docker Image
@@ -40,19 +40,22 @@ OR
 
 ## Reduce Image Size
 Multi-stage builds are a new feature requiring **Docker 17.05** or higher on
-the daemon and client. If multi-stage builds are supported on your system,
-then uncomment the following lines (those with **##**) in the Dockerfile:
+the daemon and client. If multi-stage builds are NOT supported on your system,
+then comment out the lines between '# BEGIN' and '# END' in the Dockerfile:
 ```
 :
 
 # -------- Import stage.
 # Docker 17.05 or higher
-##FROM centos
-##COPY --from=0 /usr/bin/dpdk-app /usr/bin/dpdk-app
-##COPY --from=0 /usr/bin/l3fwd /usr/bin/l3fwd
-##COPY --from=0 /usr/bin/testpmd /usr/bin/testpmd
-##COPY --from=0 /lib64/libnetutil_api.so /lib64/libnetutil_api.so
-##COPY --from=0 /usr/lib64/libnuma.so.1 /usr/lib64/libnuma.so.1
+# BEGIN
+FROM centos
+COPY --from=0 /usr/bin/dpdk-app /usr/bin/dpdk-app
+COPY --from=0 /usr/bin/l2fwd /usr/bin/l2fwd
+COPY --from=0 /usr/bin/l3fwd /usr/bin/l3fwd
+COPY --from=0 /usr/bin/testpmd /usr/bin/testpmd
+COPY --from=0 /lib64/libnetutil_api.so /lib64/libnetutil_api.so
+COPY --from=0 /usr/lib64/libnuma.so.1 /usr/lib64/libnuma.so.1
+# END
 
 :
 ```
@@ -60,19 +63,25 @@ then uncomment the following lines (those with **##**) in the Dockerfile:
 # Docker Image Details
 This Docker Image is downloading DPDK (version 19.08 to get memif PMD)
 and building it. Once built, it changes into the DPDK `testpmd`
-directory (${DPDK_DIR}/app/test-pmd) and builds it. It then changes
-in the DPDK `l3fwd` directory (${DPDK_DIR}/examples/l3fwd) and builds
-it.
+directory (${DPDK_DIR}/app/test-pmd) and builds it. It then repeats
+for the DPDK `l2fwd` directory (${DPDK_DIR}/examples/l2fwd) and the
+the DPDK `l3fwd` directory (${DPDK_DIR}/examples/l3fwd).
 
-`testpmd` and `l3fwd` are DPDK sample applications. `testpmd` performs
-Layer 3 switching and `l3fwd` performs Layer 3 routing. Both applications
-are built with the `app-netutil` and copied into '/usr/bin/'. One of the
-applications is then also copied to '/usr/bin/' and renamed as `dpdk-app`.
-See your Dockerfile, because multiple versions exist and copy different
-applications as `dpdk-app`. Below assumes `l3fwd` is copied over as
-`dpdk-app`. But same concept applies to `testpmd`.
+`testpmd`, `l2fwd` and `l3fwd` are DPDK sample applications. `testpmd`
+and `l2fwd` performs Layer 2 switching and `l3fwd` performs Layer 3
+routing. All three applications are built with the `app-netutil` and
+copied into '/usr/bin/'. `l3fwd` is then also copied to '/usr/bin/' and
+renamed as `dpdk-app` (default option).
 
-Typically, `l3fwd` is started with a set of input parameters that initializes DPDK.
+Which DPDK sample application is run is controlled by an environmental
+variable (DPDK_SAMPLE_APP) set in the pod spec. If not set, the image
+defaults to using `dpdk-app`, which is mapped to `l3fwd`. See
+`sample/dpdk_app/sriov/sriov-pod-1.yaml` for an example of the environmental
+variable `DPDK_SAMPLE_APP` being used.
+
+Typically, `l3fwd` is started with a set of input parameters that
+initializes DPDK.
+
 For example:
 ```
 $ l3fwd -n 4 -l 1 --master-lcore 1 -w 0000:01:0a.6 -w 0000:01:02.1 -- -p 0x3 -P --config="(0,0,1),(1,0,1)" --parse-ptype
