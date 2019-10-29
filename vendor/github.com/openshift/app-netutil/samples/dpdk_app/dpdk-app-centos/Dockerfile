@@ -101,6 +101,7 @@ RUN cp build/l3fwd /usr/bin/dpdk-app
 
 # -------- Import stage.
 # Docker 17.05 or higher
+# BEGIN
 FROM centos
 COPY --from=0 /usr/bin/dpdk-app /usr/bin/dpdk-app
 COPY --from=0 /usr/bin/l2fwd /usr/bin/l2fwd
@@ -108,6 +109,7 @@ COPY --from=0 /usr/bin/l3fwd /usr/bin/l3fwd
 COPY --from=0 /usr/bin/testpmd /usr/bin/testpmd
 COPY --from=0 /lib64/libnetutil_api.so /lib64/libnetutil_api.so
 COPY --from=0 /usr/lib64/libnuma.so.1 /usr/lib64/libnuma.so.1
+# END
 
 COPY ./docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]

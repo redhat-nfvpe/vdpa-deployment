@@ -11,4 +11,4 @@ import:
 - package: github.com/intel/userspace-cni-network-plugin
   subpackages:
   - pkg/types
-  - annotations
+  - pkg/annotations
