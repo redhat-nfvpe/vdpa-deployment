@@ -4,26 +4,30 @@ GO code and example YAML files to deploy vDPA VFs in a container running in kube
    * [Overview](#overview)
    * [Quick Start](#quick-start)
       * [Kubernetes < 1.16](#kubernetes--116)
-      * [Prerequisties](#prerequisties)
+      * [Prerequisites](#prerequisites)
    * [vdpa-dpdk-image](#vdpa-dpdk-image)
+     * [vdpa-cni Image](#vdpa-cni-image)
    * [server-image](#server-image)
       * [client-image](#client-image)
       * [gRPC proto](#grpc-proto)
-   * [SR-IOV](#sr-iov)
+   * [SR-IOV Device Plugin](#sr-iov-device-plugin)
       * [vDPA Setup](#vdpa-setup)
       * [sriov-dp](#sriov-dp)
-         * [Network-Attachment-Definition](#network-attachment-definition)
-         * [ConfigMap](#configmap)
-         * [SR-IOV Device Plugin Daemonset](#sr-iov-device-plugin-daemonset)
-      * [sriov-cni](#sriov-cni)
-        * [sriov-cni Image](#sriov-cni-image)
+      * [Network-Attachment-Definition](#network-attachment-definition)
+      * [ConfigMap](#configmap)
+      * [SR-IOV Device Plugin Daemonset](#sr-iov-device-plugin-daemonset)
+   * [vdpa-cni](#vdpa-cni)
    * [Sample Application](#sample-application)
       * [dpdk-app-centos](#dpdk-app-centos)
+      * [Seastar-httpd](#seastar-httpd)
+   * [Docker Hub](#docker-hub)
+   * [Archive](#archive)
+      * [sriov-cni](#sriov-cni)
+        * [sriov-cni Image](#sriov-cni-image)
       * [Scylla](#scylla)
          * [Scylla Init-Container](#scylla-init-container)
          * [Scylla Docker Image](#scylla-docker-image)
          * [Scylla Deployment](#scylla-deployment)
-   * [Docker Hub](#docker-hub)
 
 ## Overview
 vhost Data Path Acceleration (vDPA) utilizes virtio ring compatible
@@ -33,7 +37,7 @@ NICs that support vDPA behave similar to NICs that support SR-IOV in the
 fact that the Physical Function (PF) can be divided up into multiple
 Virtual Functions (VF). 
 
-This repo, inconjunction with several other repos, enable vDPA VFs to
+This repo, in conjunction with several other repos, enable vDPA VFs to
 be used in a container. The following diagram shows the set of components
 used and how this repo fits into the end solution:
 
@@ -41,14 +45,14 @@ used and how this repo fits into the end solution:
 
 ## Quick Start
 To leverage this repo, download this repo, run `make all` and then copy
-the SR-IOV CNI to the proper locacation:
+the vDPA CNI to the proper location:
 
 ```
    cd $GOPATH/src/
    go get github.com/redhat-nfvpe/vdpa-deployment
    cd github.com/redhat-nfvpe/vdpa-deployment/
    make all
-   sudo cp bin/sriov /opt/cni/bin/. 
+   sudo cp bin/vdpa /opt/cni/bin/.
 ```
 
 `make all` builds the following images/binaries:
@@ -59,17 +63,15 @@ the SR-IOV CNI to the proper locacation:
 * `vdpa-grpc-server` docker image: Located in the **server-image**
   directory. This image is also runs in the same Daemonset on each node as
   `vdpa-daemonset`. The `vdpa-grpc-server` image provides a gRPC
-  Server for the SR-IOV CNI to call to retrieve the VF PCI Address to unix
+  Server for the vDPA CNI to call to retrieve the VF PCI Address to unix
   socketfile mapping. See [server-image](#server-image).
 * `sriov-device-plugin` docker image: Located in the **sriov-dp**
   directory. This image takes the upstream SR-IOV Device Plugin and applies
   some local patches to enable it to work with vDPA as well. See
   [sriov-dp](#sriov-dp).
-* `sriov` CNI binary: Located in the **sriov-cni** directory. This image takes
-  the upstream SR-IOV CNI and applies some local patches to enable it to work
-  with vDPA as well. The binary is located in `bin/sriov`. This file must be
-  copied to the default CNI directory, typically `/opt/cni/bin/`. See
-  [sriov-cni](#sriov-cni).
+* `vdpa` CNI binary: Located in the **vdpa-cni** directory. The binary is
+  located in `bin/vdpa`. This file must be copied to the default CNI directory,
+  typically `/opt/cni/bin/`. See [vdpa-cni](#vdpa-cni).
 
 The sample application used in this deployment is the `dpdk-app-centos`
 docker image. The following set of commands will download and build the image.
@@ -117,9 +119,9 @@ rollback these changes:
     sriovdp-vdpa-daemonset.yaml  vdpa-daemonset.yaml
 ```
 
-### Prerequisties
+### Prerequisites
 This setup assumes:
-* Running on baremetal.
+* Running on bare metal.
 * Kubernetes is installed.
 * Multus CNI is installed.
 * vDPA VFs have already been created on the PFs being used.
@@ -132,7 +134,7 @@ For reference, this repo was developed and tested on:
 
 ## vdpa-dpdk-image
 vDPA leverages existing userspace virtio/vHost protocol to negotiate
-the vrings used to pass data traffic. A typical vHost implemenation
+the vrings used to pass data traffic. A typical vHost implementation
 uses a userspace vSwitch on the host (like OvS-DPDK or VPP), which
 serves as either the server or client of the vHost. Then if running
 a VM, QEMU serves as the other side of the vHost (client or server).
@@ -160,7 +162,7 @@ the vring negotiation on behalf of the NIC.
 
 
 The `/var/run/vdpa/pciList.dat` file is just a list of PCI Address
-associated with vDPA VFs. For testing purpose, the file can be generated
+associated with vDPA VFs. For testing purposes, the file can be generated
 manually (where the PCI addresses match the VFs on the server):
 ```
 $ sudo vi /var/run/vdpa/pciList.dat
@@ -208,8 +210,8 @@ docker image using the following command:
 The **server-image** directory contains the files to build the
 `vdpa-grpc-server` docker image. This image runs a gRPC Server
 that is called from a CNI trying to add a vDPA VF to a container.
-In this solution, the SR-IOV CNI has been modified with gRPC Client
-code to call this server (see [sriov-cni](#sriov-cni)) and retrieve
+In this solution, the vDPA CNI has been modified with gRPC Client
+code to call this server (see [vdpa-cni](#vdpa-cni)) and retrieve
 the associated unix socketfile. 
 
 To build the docker image:
@@ -306,11 +308,11 @@ to be updated, then this file needs to be regenerated using:
 This assumes that `protoc` and `protoc-gen-go` are installed on the
 system.
 
-## SR-IOV
+## SR-IOV Device Plugin
 vDPA has a lot in common with SR-IOV in the way that SR-IOV can
 create multiple Virtual Functions (VFs) from a given Physical
-Function (PF). To that end, the SR-IOV Device Plugin and SR-IOV
-CNI have been modified to handle vDPA interfaces as well.
+Function (PF). To that end, the SR-IOV Device Plugin has been
+modified to handle vDPA interfaces as well.
 
 The changes are minimal and hopeful they can be officially
 integrated at some time in the future. Because this is just a
@@ -415,7 +417,7 @@ data:
     }
 ```
 
-In this example, VFs 0-3 associated with phyiscal interface `enp130s0f0`
+In this example, VFs 0-3 associated with physical interface `enp130s0f0`
 will be assigned to network `intel_vdpa_dpdk_a`, and VFs 4-7 will be
 assigned to network `intel_vdpa_dpdk_b`.
 
@@ -502,62 +504,51 @@ kubectl get node nfvsdn-22-oot -o json | jq '.status.allocatable'
 }
 ```
 
-### sriov-cni
-The changes to enable the SR-IOV CNI to also manage vDPA interfaces
-were broken into two parts. The change to the existing code are
-contained in a patch file located in this directory. New code to
-manage the virtio unix socket files were placed in two new files
-outside of the patch. These two new files are also in this directory.
+## vdpa-cni
+A new CNI was created to inject vDPA interfaces into a pod. The
+vDPA CNI is currently a bare bones CNI with minimal checks and
+validation.
 
-The top level `Makefile` downloads the SR-IOV CNI repo
-(`github.com/intel/sriov-cni`) to a `gopath` subdirectory, copies over
-the new source code files, applies the patch, updates glide, and builds
-the code. Because copying the SR-IOV CNI binary to `/opt/cni/bin/`
-requires root privilege, it was copied to `bin/` to be copied outside
-of `make`.
-
-The changes in the patch file include:
-* In the main cmdAdd() function, in the existing check for DPDK Mode, call
-  into the new vDPA code to mange the unix socketfile.
-* Update to glide.yaml to include several Userspace CNI sub-packages.
-  This is needed in the new files to write the socketfile data to the
-  container.
-* When determining the number VFs created, the code inspects the
-  `sriov_numvfs` from `/sys/class/net/<ifname>/device/`, where `<ifname>`
-  is the name of the PF interface and is a symlink to something like
-  `../../devices/pci0000:00/0000:00:03.0/0000:01:00.0/net/<ifname>`.
-  For vDPA, the symlink contains an additional `virtio0` subdirectory, like
-  `../../devices/pci0000:80/0000:80:03.0/0000:83:00.0/virtio0/net/<ifname>`.
-  Added code such that if the `sriov_numvfs` isn't found, try again but
-  first evaluated the symlink, then remove the `virtio0`.
-* Similar changes to above, when mapping from VF PCI Address to name of
-  phyical interface (`/sys/bus/pci/devices/<VF_PCIAddr>/physfn/net/`),
-  add `virtio0` into the directory name
-  (`/sys/bus/pci/devices/<VF_PCIAddr>/physfn/virtio0/net/`).
-
-Changes in the new files:
-* `pkg/vdpa/vdpa.go`
-   * Write the vHost data (ncluding the unix socketfile location) to
-     container using the Userspace CNI package.
-* `pkg/vdpa/vdpadpdk-client.go`
-   * Make gRPC call to vDPA-DPDK gRPC Server to return the unix socketfile
-     associated with a given PCI Address of a VF.
-
-#### sriov-cni Image
-
-There were some issues building SR-IOV CNI as packaged in this repo. To
-help get around this, the SR-IOV CNI can be built into a docker image, then
-the image runs as a DaemonSet and installs the CNI binary in `/opt/cni/bin/`.
-
-To build SR-IOV CNI in a Docker image:
+To build the vDPA CNI:
 ```
    cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make sriov-cni-image
+   make vdpa-cni
+   -- OR --
+   make all
+```
+
+Because copying the vDPA CNI binary to `/opt/cni/bin/` (or whatever
+directory CNI binaries are run from on the system) requires
+root privilege, it was copied to `bin/` and needs to be copied outside
+of `make`.
+
+The vDPA CNI includes the following functionality:
+ * Make gRPC call to vDPA-DPDK gRPC Server to return the unix socketfile
+   associated with a given PCI Address of a VF.
+ * Write the vHost data (including the unix socketfile location) to
+   container using the Userspace CNI package.
+
+### vdpa-cni Image
+The vDPA CNI can be built into a docker image, then the image runs as a
+DaemonSet and installs the CNI binary in `/opt/cni/bin/`.
+
+To build vDPA CNI in a Docker image:
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
+   make vdpa-cni-image
 ```
 
 To run:
 ```
-   kubectl create -f ./deployment/sriov-cni-daemonset.yaml
+   kubectl create -f ./deployment/cni/vdpa-cni-daemonset.yaml
+```
+
+As with all DaemonSet YAML files, there is a version of the file for
+Kubernetes versions prior to 1.16 in the `k8s-pre-1-16` subdirectory.
+
+The image was also copied to Docker Hub and can be retrieved using:
+```
+   docker pull bmcfall/vdpa-cni:latest
 ```
 
 ## Sample Application
@@ -569,7 +560,7 @@ To add virtio based interfaces into a DPDK based application in a container,
 the DPDK application needs a unix socket file, which is shared with the host
 through a VolumeMount, and a set of configuration data about how the socketfile
 should be used. Currently, the Userspace CNI uses annotations or configuration
-files to share the data. As mentioned above, the SR-IOV CNI has been updated
+files to share the data. As mentioned above, the vDPA CNI has been coded
 to leverage the Userspace CNI to share this configuration data with the container.
 
 Once the above data is in the POD, a library has been written with a C and a
@@ -579,11 +570,11 @@ This code is in https://github.com/openshift/app-netutil.
 There are two container workloads that are being used that leverage the
 `app-netutil`:
 * `dpdk-app-centos`
-* Scylla Docker Image
+* Seastar-httpd Image
 
 ### dpdk-app-centos
 The `dpdk-app-centos` container image includes the `app-netutil` library and
-uses the information gathered to call one of the DPDK sample application with
+uses the information gathered to call one of the DPDK sample applications with
 the dynamic data provided. Currently, `dpdk-app-centos` supports the following
 DPDK sample application:
 * `l2fwd`
@@ -643,6 +634,97 @@ assigned to it. VF from network `vdpa-dpdk-b` will be the second interface assig
 to DPDK, and thus will get route 192.18.1.0 / 24 assigned to it. At this time, this
 is not configurable.
 
+### Seastar-httpd
+This will be updated shortly. Nothing has been done to bring this application
+into the K8s solution.
+
+## Docker Hub
+All the images have been pushed to Docker Hub. Check the state of the upstream
+image verses the latest commits to the source code repos. This code is changing
+rapidly and the image may be out of data.
+
+None of the yaml files have been updated to run the download images, so the yaml
+files will need to be prefixed with 'bmcfall/' in all the image names.
+
+The following image can be retrieved:
+```
+   docker pull bmcfall/dpdk-app-centos:latest
+   docker pull bmcfall/sriov-device-plugin:latest
+   docker pull bmcfall/vdpa-daemonset:latest
+   docker pull bmcfall/vdpa-grpc-server:latest
+```
+
+## Archive
+This is a POC, so things change as the project moves along. The following
+section is an archive of modules/directories that are no longer being used,
+but keeping around in case we need to fall back on.
+
+### sriov-cni
+The changes to enable the SR-IOV CNI to also manage vDPA interfaces
+were broken into two parts. The change to the existing code are
+contained in a patch file located in this directory. New code to
+manage the virtio unix socket files were placed in two new files
+outside of the patch. These two new files are also in this directory.
+
+The top level `Makefile` downloads the SR-IOV CNI repo
+(`github.com/intel/sriov-cni`) to a `gopath` subdirectory, copies over
+the new source code files, applies the patch, updates glide, and builds
+the code. Because copying the SR-IOV CNI binary to `/opt/cni/bin/`
+requires root privilege, it was copied to `bin/` to be copied outside
+of `make`.
+
+The changes in the patch file include:
+* In the main cmdAdd() function, in the existing check for DPDK Mode, call
+  into the new vDPA code to manage the unix socketfile.
+* Update to glide.yaml to include several Userspace CNI sub-packages.
+  This is needed in the new files to write the socketfile data to the
+  container.
+* When determining the number VFs created, the code inspects the
+  `sriov_numvfs` from `/sys/class/net/<ifname>/device/`, where `<ifname>`
+  is the name of the PF interface and is a symlink to something like
+  `../../devices/pci0000:00/0000:00:03.0/0000:01:00.0/net/<ifname>`.
+  For vDPA, the symlink contains an additional `virtio0` subdirectory, like
+  `../../devices/pci0000:80/0000:80:03.0/0000:83:00.0/virtio0/net/<ifname>`.
+  Added code such that if the `sriov_numvfs` isn't found, try again but
+  first evaluated the symlink, then remove the `virtio0`.
+* Similar changes to above, when mapping from VF PCI Address to name of
+  physical interface (`/sys/bus/pci/devices/<VF_PCIAddr>/physfn/net/`),
+  add `virtio0` into the directory name
+  (`/sys/bus/pci/devices/<VF_PCIAddr>/physfn/virtio0/net/`).
+
+Changes in the new files:
+* `pkg/vdpa/vdpa.go`
+   * Write the vHost data (including the unix socketfile location) to
+     container using the Userspace CNI package.
+* `pkg/vdpa/vdpadpdk-client.go`
+   * Make gRPC call to vDPA-DPDK gRPC Server to return the unix socketfile
+     associated with a given PCI Address of a VF.
+
+#### sriov-cni Image
+
+There were some issues building SR-IOV CNI as packaged in this repo. To
+help get around this, the SR-IOV CNI can be built into a docker image, then
+the image runs as a DaemonSet and installs the CNI binary in `/opt/cni/bin/`.
+
+To build SR-IOV CNI in a Docker image:
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
+   make sriov-cni-image
+```
+
+To run:
+```
+   kubectl create -f ./deployment/cni/sriov-cni-daemonset.yaml
+```
+
+As with all DaemonSet YAML files, there is a version of the file for
+Kubernetes versions prior to 1.16 in the `k8s-pre-1-16` subdirectory.
+
+The image was also copied to Docker Hub and can be retrieved using:
+```
+   docker pull bmcfall/sriov-cni:latest
+```
+
 ### Scylla
 This is a work in progress and is not fully working with vDPA at
 the moment. The remaining notes are where we are at the moment.
@@ -663,12 +745,9 @@ To build the Scylla init-container image, run:
 ```
    cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
    make scylla-image
-   -- OR --
-   make all
 ```
 
 #### Scylla Docker Image
-
 To build the Scylla image, download the upstream repo (instructions
 located at: https://www.scylladb.com/download/open-source/), apply
 a local patch, and build image:
@@ -728,21 +807,4 @@ time:
    #exec /usr/bin/scylla $SCYLLA_ARGS $SEASTAR_IO $DEV_MODE $CPUSET $SCYLLA_DOCKER_ARGS
 
    sh-4.2# ./scylla-service.sh
-```
-
-## Docker Hub
-All the images have been pushed to Docker Hub. Check the state of the upstream
-image verses the latest commits to the source code repos. This code is changing
-rapidly and the image may be out of data.
-
-None of the yaml files have been updated to run the download images, so the yaml
-files will need to be prefixed with 'bmcfall/' in all the image names.
-
-The following image can be retrieved:
-```
-   docker pull bmcfall/dpdk-app-centos:latest
-   docker pull bmcfall/sriov-cni:latest
-   docker pull bmcfall/sriov-device-plugin:latest
-   docker pull bmcfall/vdpa-daemonset:latest
-   docker pull bmcfall/vdpa-grpc-server:latest
 ```

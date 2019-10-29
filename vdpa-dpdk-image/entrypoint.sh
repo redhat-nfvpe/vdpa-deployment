@@ -7,7 +7,7 @@ VDPA_PCILIST="/var/run/vdpa/pciList.dat"
 VDPA_VHOST_SOCKETDIR="/var/run/vdpa/vhost"
 
 CLI_PARAMS=""
-CLI_PARAMS="$CLI_PARAMS -l 10-13"
+CLI_PARAMS="$CLI_PARAMS -l 0"
 
 ORIG_NUM_WATCHES=`cat /proc/sys/fs/inotify/max_user_watches`
 echo 500000 > /proc/sys/fs/inotify/max_user_watches

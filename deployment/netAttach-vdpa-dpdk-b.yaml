@@ -6,7 +6,10 @@ metadata:
     k8s.v1.cni.cncf.io/resourceName: intel.com/intel_vdpa_dpdk_b
 spec:
   config: '{
-  "type": "sriov",
+  "type": "vdpa",
   "cniVersion": "0.3.1",
-  "name": "vdpa-network-b"
+  "name": "vdpa-network-b",
+  "kubeconfig": "/etc/cni/net.d/multus.d/multus.kubeconfig",
+  "logFile": "/var/log/vdpa-cni-b.log",
+  "logLevel": "debug"
 }'

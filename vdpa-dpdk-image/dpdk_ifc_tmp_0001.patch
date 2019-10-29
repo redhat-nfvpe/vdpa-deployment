@@ -1,0 +1,18 @@
+diff --git a/drivers/net/ifc/ifcvf_vdpa.c b/drivers/net/ifc/ifcvf_vdpa.c
+index 8de9ef199..34e137cc0 100644
+--- a/drivers/net/ifc/ifcvf_vdpa.c
++++ b/drivers/net/ifc/ifcvf_vdpa.c
+@@ -1246,7 +1246,12 @@ static const struct rte_pci_id pci_id_ifcvf_map[] = {
+ 	  .subsystem_vendor_id = IFCVF_SUBSYS_VENDOR_ID,
+ 	  .subsystem_device_id = IFCVF_SUBSYS_DEVICE_ID,
+ 	},
+-
++	{ .class_id = RTE_CLASS_ANY_ID,
++	  .vendor_id = IFCVF_VENDOR_ID,
++	  .device_id = IFCVF_DEVICE_ID,
++	  .subsystem_vendor_id = 0x8086,
++	  .subsystem_device_id = 0x15fe,
++	},
+ 	{ .vendor_id = 0, /* sentinel */
+ 	},
+ };

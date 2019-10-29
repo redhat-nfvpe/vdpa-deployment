@@ -46,6 +46,12 @@ RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linux
 COPY ./vdpa-dpdk-image/vhost_substitute.sh ./vhost_substitute.sh
 RUN ./vhost_substitute.sh
 
+# Temp patch to allow vDPA Sample APP to work with
+# Cascade Glacier PF. Used to simulate Alibaba deployment.
+#COPY ./vdpa-dpdk-image/dpdk_ifc_tmp_0001.patch ./dpdk_ifc_tmp_0001.patch
+#RUN patch -p1 < dpdk_ifc_tmp_0001.patch
+
+
 RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
 
 #
