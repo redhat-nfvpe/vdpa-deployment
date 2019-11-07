@@ -18,11 +18,18 @@ RUN yum install -y wget numactl-devel git golang make; yum clean all
 #
 # Download and Build DPDK
 #
-ENV DPDK_VER 19.08
-ENV DPDK_DIR /usr/src/dpdk-${DPDK_VER}
+#ENV DPDK_VER 19.08
+#ENV DPDK_DIR /usr/src/dpdk-${DPDK_VER}
+#WORKDIR /usr/src/
+#RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz
+#RUN tar -xpvf dpdk-${DPDK_VER}.tar.xz
+
+ENV DPDK_DIR /usr/src/dpdk
 WORKDIR /usr/src/
-RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz
-RUN tar -xpvf dpdk-${DPDK_VER}.tar.xz
+RUN git clone https://gitlab.com/mcoquelin/dpdk-next-virtio.git dpdk
+
+WORKDIR ${DPDK_DIR}
+RUN git checkout origin/kubecon_vdpa_drivers
 
 ENV RTE_TARGET=x86_64-native-linuxapp-gcc
 ENV RTE_SDK=${DPDK_DIR}
@@ -43,8 +50,9 @@ RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linux
 #RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linuxapp
 
 # Add vhost patch
-COPY ./vdpa-dpdk-image/vhost_substitute.sh ./vhost_substitute.sh
-RUN ./vhost_substitute.sh
+# NOTE: Already in origin/kubecon_vdpa_drivers
+#COPY ./vdpa-dpdk-image/vhost_substitute.sh ./vhost_substitute.sh
+#RUN ./vhost_substitute.sh
 
 # Temp patch to allow vDPA Sample APP to work with
 # Cascade Glacier PF. Used to simulate Alibaba deployment.
@@ -52,7 +60,7 @@ RUN ./vhost_substitute.sh
 #RUN patch -p1 < dpdk_ifc_tmp_0001.patch
 
 
-RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
+RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK} EXTRA_CFLAGS='-g'
 
 #
 # Build vdpa

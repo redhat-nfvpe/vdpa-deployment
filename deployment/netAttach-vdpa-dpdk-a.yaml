@@ -3,7 +3,7 @@ kind: NetworkAttachmentDefinition
 metadata:
   name: vdpa-net-a
   annotations:
-    k8s.v1.cni.cncf.io/resourceName: intel.com/intel_vdpa_dpdk_a
+    k8s.v1.cni.cncf.io/resourceName: intel.com/vdpa_dpdk_a
 spec:
   config: '{
   "type": "vdpa",

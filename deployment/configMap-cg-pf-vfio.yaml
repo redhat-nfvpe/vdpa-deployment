@@ -7,7 +7,7 @@ data:
   config.json: |
     {
         "resourceList": [{
-                "resourceName": "intel_vdpa_dpdk_a",
+                "resourceName": "vdpa_dpdk_a",
                 "selectors": {
                     "vendors": ["1af4"],
                     "devices": ["1041"],

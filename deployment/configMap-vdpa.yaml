@@ -7,21 +7,30 @@ data:
   config.json: |
     {
         "resourceList": [{
-                "resourceName": "intel_vdpa_dpdk_a",
+                "resourceName": "vdpa_dpdk_a",
                 "selectors": {
                     "vendors": ["1af4"],
                     "devices": ["1041"],
                     "drivers": ["vfio-pci"],
-                    "pfNames": ["enp131s0f0#0-3"]
+                    "pfNames": ["enp131s0f0#0-1"]
                 }
             },
             {
-                "resourceName": "intel_vdpa_dpdk_b",
+                "resourceName": "vdpa_dpdk_b",
                 "selectors": {
                     "vendors": ["1af4"],
                     "devices": ["1041"],
                     "drivers": ["vfio-pci"],
-                    "pfNames": ["enp131s0f0#4-7"]
+                    "pfNames": ["enp131s0f0#2-3"]
+                }
+            },
+            {
+                "resourceName": "vdpa_dpdk_c",
+                "selectors": {
+                    "vendors": ["1af4"],
+                    "devices": ["1041"],
+                    "drivers": ["vfio-pci"],
+                    "pfNames": ["enp131s0f0#7-7"]
                 }
             }
         ]
