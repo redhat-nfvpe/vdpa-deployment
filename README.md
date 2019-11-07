@@ -19,7 +19,10 @@ GO code and example YAML files to deploy vDPA VFs in a container running in kube
    * [vdpa-cni](#vdpa-cni)
    * [Sample Application](#sample-application)
       * [dpdk-app-centos](#dpdk-app-centos)
-      * [Seastar-httpd](#seastar-httpd)
+      * [seastar-httpd](#seastar-httpd)
+         * [init-container](#init-container)
+         * [httpd](#httpd)
+         * [Seastar Deployment](#seastar-deployment)
    * [Docker Hub](#docker-hub)
    * [Archive](#archive)
       * [sriov-cni](#sriov-cni)
@@ -396,7 +399,7 @@ data:
   config.json: |
     {
         "resourceList": [{
-                "resourceName": "intel_vdpa_dpdk_a",
+                "resourceName": "vdpa_dpdk_a",
                 "selectors": {
                     "vendors": ["1af4"],
                     "devices": ["1041"],
@@ -405,7 +408,7 @@ data:
                 }
             },
             {
-                "resourceName": "intel_vdpa_dpdk_b",
+                "resourceName": "vdpa_dpdk_b",
                 "selectors": {
                     "vendors": ["1af4"],
                     "devices": ["1041"],
@@ -418,8 +421,8 @@ data:
 ```
 
 In this example, VFs 0-3 associated with physical interface `enp130s0f0`
-will be assigned to network `intel_vdpa_dpdk_a`, and VFs 4-7 will be
-assigned to network `intel_vdpa_dpdk_b`.
+will be assigned to network `vdpa_dpdk_a`, and VFs 4-7 will be
+assigned to network `vdpa_dpdk_b`.
 
 `NOTE:` This file will most likely need to be updated before using to
 match interface on deployed hardware. To obtain the other attributes,
@@ -490,15 +493,15 @@ looking for VFs that meet the selector’s criteria. This takes a
 couple of seconds to collect. The following command can be used to
 determine the number of detected VFs. (NOTE: This is the allocated
 values and does not change as VFs are doled out.) See
-"intel.com/intel_vdpa_dpdk_a" and "intel.com/intel_vdpa_dpdk_b":
+"intel.com/vdpa_dpdk_a" and "intel.com/vdpa_dpdk_b":
 ```
 kubectl get node nfvsdn-22-oot -o json | jq '.status.allocatable'
 {
   "cpu": "64",
   "ephemeral-storage": "396858657750",
   "hugepages-1Gi": "64Gi",
-  "intel.com/intel_vdpa_dpdk_a": "4",
-  "intel.com/intel_vdpa_dpdk_b": "4",
+  "intel.com/vdpa_dpdk_a": "4",
+  "intel.com/vdpa_dpdk_b": "4",
   "memory": "64773512Ki",
   "pods": "110"
 }
@@ -634,9 +637,90 @@ assigned to it. VF from network `vdpa-dpdk-b` will be the second interface assig
 to DPDK, and thus will get route 192.18.1.0 / 24 assigned to it. At this time, this
 is not configurable.
 
-### Seastar-httpd
-This will be updated shortly. Nothing has been done to bring this application
-into the K8s solution.
+### seastar-httpd
+The following sections describe how to build and deploy two
+docker images that implement the Scylla application, Seastar,
+which is an httpd.
+* `httpd-init-container`
+* `seastar-httpd`
+
+#### init-container
+This directory contains code that builds the `app-netutil` library in
+an init container, which gathers the needed vDPA socketfiles. This
+data is written to a file (`/var/run/seastar/seastar_dpdk_dynamic.conf`)
+that can used by the httpd image. The contents of this file look
+something like the following, where the path will vary depending on
+the VFs injected into the container:
+```
+   sudo cat /var/run/seastar/seastar_dpdk_dynamic.conf
+   --vdev=virtio_user0,path=/var/lib/cni/usrspcni/vdpa-7
+```
+
+NOTE: The httpd only takes one interface.
+
+
+To build the httpd init-container image, run:
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
+   make httpd-init-image
+   -- OR --
+   make all
+```
+
+#### httpd
+Seastar (https://github.com/scylladb/seastar), from Scylla,
+is an advanced, open-source C++ framework for high-performance
+server applications on modern hardware. This solution is taking
+the upstream code-base, patching it for vDPA, and using it as
+an httpd to demonstrate vDPA as a technology.
+
+To build the httpd image, run:
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
+   make httpd-image
+   -- OR --
+   make all
+```
+
+#### Seastar Deployment
+To deploy the httpd image with the Init-Container, make
+sure the steps are followed above to build and deploy the
+SR-IOV Device Plugin, vDPA CNI, and vDPA Daemonset, all with
+vDPA changes.
+
+```
+   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
+   kubectl create -f ./deployment/seastar-httpd-pod.yaml
+```
+
+This will launch the httpd running on top of a vDPA interface.
+By default, this deployment assigns IP "192.168.133.2" to
+the application. This can be overwritten in the
+`seastar-httpd-pod.yaml` file by uncommenting the following
+lines and setting a new value:
+```
+    #env:
+    #- name: SEASTAR_POD_HTTPD_IPADDR
+    #  value: "192.168.133.2"
+```
+
+To test, ping the IP address and send a curl request over the
+vDPA Interface:
+```
+   $ ping 192.168.133.2
+   PING 192.168.133.2 (192.168.133.2) 56(84) bytes of data.
+   64 bytes from 192.168.133.2: icmp_seq=1 ttl=64 time=0.182 ms
+   64 bytes from 192.168.133.2: icmp_seq=2 ttl=64 time=0.125 ms
+   64 bytes from 192.168.133.2: icmp_seq=3 ttl=64 time=0.133 ms
+   :
+
+   $ curl -X GET "http://192.168.133.2:10000"
+   "hello"
+```
+
+Shortly, an additional Scylla application, Seawreck, will
+be added to the repo. This will drive the httpd better than
+a few pings and curl commands.
 
 ## Docker Hub
 All the images have been pushed to Docker Hub. Check the state of the upstream

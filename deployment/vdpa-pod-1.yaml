@@ -21,19 +21,21 @@ spec:
       name: hugepage
     resources:
       requests:
-        memory: 1Gi
-        intel.com/intel_vdpa_dpdk_a: '1'
-        intel.com/intel_vdpa_dpdk_b: '1'
+        #memory: 1Gi
+        memory: 2Mi
+        intel.com/vdpa_dpdk_a: '1'
+        intel.com/vdpa_dpdk_b: '1'
       limits:
-        hugepages-1Gi: 2Gi
-        intel.com/intel_vdpa_dpdk_a: '1'
-        intel.com/intel_vdpa_dpdk_b: '1'
+        #hugepages-1Gi: 2Gi
+        hugepages-2Mi: 2048Mi
+        intel.com/vdpa_dpdk_a: '1'
+        intel.com/vdpa_dpdk_b: '1'
     # Uncomment to control which DPDK App is running in container.
     # If not provided, l3fwd is default.
     #   Options: l2fwd l3fwd testpmd
     #env:
     #- name: DPDK_SAMPLE_APP
-    #  value: "testpmd"
+    #  value: "l2fwd"
     #
     # Uncomment to debug DPDK App or to run manually to change
     # DPDK command line options.

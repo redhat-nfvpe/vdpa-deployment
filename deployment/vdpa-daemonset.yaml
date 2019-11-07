@@ -41,9 +41,9 @@ spec:
           mountPath: /dev/hugepages
         resources:
           requests:
-            memory: 1Gi
+            memory: 2Mi
           limits:
-            hugepages-1Gi: 2Gi
+            hugepages-2Mi: 2048Mi
         #command: ["sleep", "infinity"]
       - name: vdpa-grpc-server
         image: vdpa-grpc-server
