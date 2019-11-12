@@ -24,6 +24,8 @@ type NetConf struct {
 
 	DeviceID     string `json:"deviceID"` // PCI address of a VF in valid sysfs format
 	MAC          string
+	IP           string
+	IPMask       string
 
 	// One of the following two must be provided: KubeConfig or SharedDir
 	//
@@ -62,4 +64,5 @@ type NetConf struct {
 
 	LogFile       string        `json:"logFile,omitempty"`
 	LogLevel      string        `json:"logLevel,omitempty"`
+	HostNicFile   string        `json:"hostNic,omitempty"`
 }
