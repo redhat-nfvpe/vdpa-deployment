@@ -66,6 +66,7 @@ COPY --from=0 /lib64/libfmt.so.5 /lib64/libfmt.so.5
 COPY --from=0 /lib64/libhwloc.so.5 /lib64/libhwloc.so.5
 COPY --from=0 /lib64/libltdl.so.7 /lib64/libltdl.so.7
 COPY --from=0 /lib64/libnuma.so.1 /lib64/libnuma.so.1
+COPY --from=0 /lib64/libprotobuf.so.15 /lib64/libprotobuf.so.15
 COPY --from=0 /lib64/libyaml-cpp.so.0.6 /lib64/libyaml-cpp.so.0.6
 COPY --from=0 /lib64/ /tmp/lib64/
 # END - Docker 17.05 or higher

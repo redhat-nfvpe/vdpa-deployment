@@ -14,6 +14,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"runtime"
 	_ "flag"
 
@@ -33,6 +34,7 @@ import (
 	_ "github.com/intel/userspace-cni-network-plugin/pkg/configdata"
 
 	"github.com/redhat-nfvpe/vdpa-deployment/vdpa-cni/pkg/logging"
+	"github.com/redhat-nfvpe/vdpa-deployment/vdpa-cni/pkg/hostnic"
 	"github.com/redhat-nfvpe/vdpa-deployment/vdpa-cni/pkg/types"
 )
 
@@ -114,19 +116,21 @@ func cmdAdd(args *skel.CmdArgs, exec invoke.Exec, kubeClient kubernetes.Interfac
 		return err
 	}
 
-	envArgs, err := getEnvArgs(args.Args)
-	if err != nil {
-		logging.Errorf("cmdAdd: Parse args.Args - %v", err)
-		return err
-	}
+	macFound := hostnic.LoadIpAndMac(netConf)
+	if macFound == false {
+		envArgs, err := getEnvArgs(args.Args)
+		if err != nil {
+			logging.Errorf("cmdAdd: Parse args.Args - %v", err)
+			return err
+		}
 
-	if envArgs != nil {
-		MAC := string(envArgs.MAC)
-		if MAC != "" {
-			netConf.MAC = MAC
+		if envArgs != nil {
+			MAC := string(envArgs.MAC)
+			if MAC != "" {
+				netConf.MAC = MAC
+			}
 		}
 	}
-
 
 	// Initialize returned Result
 
@@ -143,7 +147,17 @@ func cmdAdd(args *skel.CmdArgs, exec invoke.Exec, kubeClient kubernetes.Interfac
 	result.Interfaces = []*current.Interface{{
 		Name:    args.IfName,
 		Sandbox: netns.Path(),
+		Mac: netConf.MAC,
 	}}
+	if netConf.IP != "" && netConf.IPMask != "" {
+		var address net.IPNet
+		address.IP = net.ParseIP(netConf.IP)
+		address.Mask = hostnic.ParseIPv4Mask(netConf.IPMask)
+		result.IPs = append(result.IPs, &current.IPConfig{
+				Version: "4",
+				Address: address,
+			})
+	}
 
 
 	// Retrieve the "SharedDir", directory to create the socketfile in.

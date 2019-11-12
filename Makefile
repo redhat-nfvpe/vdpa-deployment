@@ -29,7 +29,7 @@ help:
 	@echo "Local/Debug (not used in actual deployment):"
 	@echo " make client           - Build the GO code that handles the gRPC Client (test code)."
 	@echo " make client-image     - Make the docker image that runs the gRPC Client test code."
-	@echo " make scylla-init      - Build the GO code that runs in the Seastar-httpd Init container."
+	@echo " make httpd-init       - Build the GO code that runs in the Seastar-httpd Init container."
 	@echo " make server           - Build the GO code that handles the gRPC Server."
 	@echo " make local            - Build the GO code locally, same as:"
 	@echo "                           make server; make client;"

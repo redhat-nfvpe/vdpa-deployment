@@ -13,13 +13,16 @@ import (
 )
 
 var (
-	scyllaDpdkDynamicFile = flag.String("filename", "/var/run/seastar/seastar_dpdk_dynamic.conf", "Name of file to write data too.")
+	seastarDpdkDynamicFile = flag.String("dpdkfilename", "/var/run/seastar/seastar_dpdk_dynamic.conf", "Name of file to write dpdk data too.")
+	seastarIpDynamicFile = flag.String("ipfilename", "/var/run/seastar/seastar_ip_dynamic.conf", "Name of file to write IP data too.")
 )
 
 func main() {
 	var dpdkInterfaceStr string
 	var tmpStr string
 	var macStr string
+	var ipStr string
+	var ipWrtStr string
 	var found bool
 	var vhostCnt int
 	var memifCnt int
@@ -51,12 +54,18 @@ func main() {
 	for index, iface := range ifaceResponse.Interface {
 		tmpStr = ""
 		macStr = ""
+		ipStr = ""
 
 		fmt.Printf("| %-8d|: IfName=%+v  Name=%+v  Type=%+v\n", index, iface.IfName, iface.Name, iface.Type)
 		if iface.Network != nil {
 			fmt.Printf("|         |:   %+v\n", iface.Network)
 			if iface.Network.Mac != "" {
 				macStr = iface.Network.Mac
+			}
+			for _, ip := range iface.Network.IPs {
+				if ip != "" && ipStr == "" {
+					ipStr = ip
+				}
 			}
 		}
 
@@ -68,7 +77,13 @@ func main() {
 			}
 		case types.INTERFACE_TYPE_VHOST:
 			if iface.Vhost != nil {
-				tmpStr = fmt.Sprintf("--vdev virtio_user%d,path=%s", vhostCnt, iface.Vhost.Socketpath)
+				if macStr != "" {
+					tmpStr = fmt.Sprintf("--vdev virtio_user%d,path=%s,mac=%s,queues=1,queue_size=1024",
+						vhostCnt, iface.Vhost.Socketpath, macStr)
+				} else {
+					tmpStr = fmt.Sprintf("--vdev virtio_user%d,path=%s,queues=1,queue_size=1024",
+						vhostCnt, iface.Vhost.Socketpath)
+				}
 				vhostCnt++
 			}
 		case types.INTERFACE_TYPE_MEMIF:
@@ -86,36 +101,50 @@ func main() {
 				dpdkInterfaceStr = dpdkInterfaceStr + " "
 			}
 			dpdkInterfaceStr = dpdkInterfaceStr + tmpStr
+
+			if ipStr != "" && ipWrtStr == "" {
+				ipWrtStr = ipStr
+			}
+
 			found = true
 		}
 	}
 
 	if found {
-		fmt.Printf("Writing string: %s\n", dpdkInterfaceStr)
-		fmt.Printf("Path: %s\n", *scyllaDpdkDynamicFile)
-
-		scyllaDpdkDynamicDir := filepath.Dir(*scyllaDpdkDynamicFile)
-		fmt.Printf("Directory: %s\n", scyllaDpdkDynamicDir)
-		if _, err = os.Stat(scyllaDpdkDynamicDir); err != nil {
-			if os.IsNotExist(err) {
-				if err := os.MkdirAll(scyllaDpdkDynamicDir, 0700); err != nil {
-					glog.Errorf("Error creating directory: %v", err)
-					return
-				}
-			} else {
-				glog.Errorf("Error looking up directory: %v", err)
-				return
-			}
-		}
-
-		file, err := os.Create(*scyllaDpdkDynamicFile)
-		if err != nil {
-			glog.Errorf("Error creating file: %v", err)
-		} else {
-			file.WriteString(dpdkInterfaceStr)
-			file.Close()
-		}
+		writeStringToFile(dpdkInterfaceStr, *seastarDpdkDynamicFile)
+	}
+	if ipWrtStr != "" {
+		writeStringToFile(ipWrtStr, *seastarIpDynamicFile)
 	}
 
 	return
+}
+
+func writeStringToFile(data string, path string) {
+	var err error
+
+	fmt.Printf("Writing string: %s\n", data)
+	fmt.Printf("Path: %s\n", path)
+
+	dynamicDir := filepath.Dir(path)
+	fmt.Printf("Directory: %s\n", dynamicDir)
+	if _, err = os.Stat(dynamicDir); err != nil {
+		if os.IsNotExist(err) {
+			if err = os.MkdirAll(dynamicDir, 0700); err != nil {
+				glog.Errorf("Error creating directory: %v", err)
+				return
+			}
+		} else {
+			glog.Errorf("Error looking up directory: %v", err)
+			return
+		}
+	}
+
+	file, err := os.Create(path)
+	if err != nil {
+		glog.Errorf("Error creating file: %v", err)
+	} else {
+		file.WriteString(data)
+		file.Close()
+	}
 }
