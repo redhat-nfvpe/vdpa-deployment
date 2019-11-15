@@ -1,23 +1,35 @@
 GOBIN=${PWD}/bin
 
+SCRATCH?=n
+NO_CACHE?=
+ifeq ($(SCRATCH),y)
+NO_CACHE=--no-cache
+endif
+
 # Default to build
 default: server client
 local: server client
-all: server-image vdpa-image sriov-dp httpd-init-image httpd-image vdpa-cni
+all: server-image vdpa-image sriov-dp httpd-init-image httpd-image dpdk-app vdpa-cni
 
 help:
 	@echo "Make Targets:"
+	@echo " make dpdk-app         - Make the docker image that runs the DPDK l3fwd/l2fwd/testpmd."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo " make httpd-init-image - Make the docker image that runs the Seastar httpd Init code."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo " make httpd-image      - Make the docker image that runs the Seastar httpd."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo " make server-image     - Make the docker image that runs the gRPC Server code."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo " make sriov-dp         - Make the docker image that runs the SR-IOV Device"
-	@echo "                         Plugin with vDPA changes integrated."
+	@echo "                         Plugin with vDPA changes integrated. Append SCRATCH=y"
+	@echo "                         re-download upstream repo and to build image using '--no-cache'."
 	@echo " make vdpa-image       - Make the docker image that runs the DPDK vDPA sample"
 	@echo "                         APP. Manages the socketfiles for host."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo " make vdpa-cni         - Make the vDPA CNI binary. Binary needs to copied to"
 	@echo "                         proper location once complete (i.e. - /opt/cni/bin/.)."
-	@echo " make vdpa-cni-image   - Build the vDPA CNI in a docker image. When run as a"
-	@echo "                         daemonset, will install the built CNI binary in /opt/cni/bin/."
+	@echo "                         Append SCRATCH=y to re-download upstream repo."
 	@echo ""
 	@echo " make                  - Build all the local sub-projects locally."
 	@echo " make clean            - Cleanup all build artifacts."
@@ -40,13 +52,15 @@ help:
 	@echo " make sriov-cni        - Make the SR-IOV CNI binary with the vDPA changes"
 	@echo "                         integrated. Binary needs to copied to proper location"
 	@echo "                         once complete (i.e. - /opt/cni/bin/.)."
-	@echo " make sriov-cni-image  - Build the SR-IOV CNI as a docker image. When run as a"
-	@echo "                         daemonset, will install the built CNI binary in /opt/cni/bin/."
 	@echo ""
 	@echo "Other:"
 	@echo " glide update --strip-vendor - Recalculate dependancies and update *vendor\*"
 	@echo "   with proper packages."
 	@echo ""
+#	@echo " make vdpa-cni-image   - Build the vDPA CNI in a docker image. When run as a"
+#	@echo "                         daemonset, will install the built CNI binary in /opt/cni/bin/."
+#	@echo " make sriov-cni-image  - Build the SR-IOV CNI as a docker image. When run as a"
+#	@echo "                         daemonset, will install the built CNI binary in /opt/cni/bin/."
 
 
 #
@@ -71,6 +85,9 @@ export GOBIN=${PWD}/bin
 
 sriov-cni: GOPATH=${PWD}/gopath
 sriov-cni:
+ifeq ($(SCRATCH),y)
+	@rm -rf gopath/src/$(REPO_PATH_CNI)
+endif
 	@if [ ! -d gopath/src/$(REPO_PATH_CNI) ]; then \
 		echo ""; \
 		echo "Making sriov-cni ..."; \
@@ -109,61 +126,75 @@ vdpa-cni:
 #
 # Make Docker Images
 #
-vdpa-cni-image:
-	@docker build --rm -t vdpa-cni -f ./vdpa-cni/images/Dockerfile .
+#vdpa-cni-image:
+#	@docker build --rm -t vdpa-cni -f ./vdpa-cni/images/Dockerfile .
 
+
+dpdk-app:
+	@echo ""
+	@echo "dpdk-app $(NO_CACHE) ..."
+	@docker build $(NO_CACHE) --rm -t dpdk-app-centos -f ./dpdk-app-centos/Dockerfile .
 
 server-image:
 	@echo ""
-	@echo "Making server-image ..."
-	@docker build --rm -t vdpa-grpc-server -f ./server-image/Dockerfile .
+	@echo "Making server-image $(NO_CACHE) ..."
+	@docker build $(NO_CACHE) --rm -t vdpa-grpc-server -f ./server-image/Dockerfile .
 
 client-image:
 	@echo ""
-	@echo "Making client-image ..."
-	@docker build --rm -t vdpa-grpc-client -f ./client-image/Dockerfile .
+	@echo "Making client-image $(NO_CACHE) ..."
+	@docker build $(NO_CACHE) --rm -t vdpa-grpc-client -f ./client-image/Dockerfile .
 
 vdpa-image:
 	@echo ""
-	@echo "Making vdpa-image ..."
-	@docker build --rm -t vdpa-daemonset -f ./vdpa-dpdk-image/Dockerfile .
+	@echo "Making vdpa-image $(NO_CACHE) ..."
+	@docker build $(NO_CACHE) --rm -t vdpa-daemonset -f ./vdpa-dpdk-image/Dockerfile .
 
 httpd-image:
-	@docker build --rm -t seastar-httpd -f ./seastar-httpd/httpd/Dockerfile .
+	@echo ""
+	@echo "Making httpd-image $(NO_CACHE) ..."
+	@docker build $(NO_CACHE) --rm -t seastar-httpd -f ./seastar-httpd/httpd/Dockerfile .
 
 httpd-init-image:
-	@docker build --rm -t httpd-init-container -f ./seastar-httpd/init-container/Dockerfile .
+	@echo ""
+	@echo "Making httpd-init-image $(NO_CACHE) ..."
+	@docker build $(NO_CACHE) --rm -t httpd-init-container -f ./seastar-httpd/init-container/Dockerfile .
 
 scylla-image:
-	@docker build --rm -t scylla-init-container -f ./scylla-init-container/Dockerfile .
+	@echo ""
+	@echo "Making scylla-image $(NO_CACHE) ..."
+	@docker build $(NO_CACHE) --rm -t scylla-init-container -f ./scylla-init-container/Dockerfile .
 
-sriov-cni-image: GOPATH=${PWD}/gopath
-sriov-cni-image:
-	@if [ ! -d gopath/src/$(REPO_PATH_CNI) ]; then \
-		echo ""; \
-		echo "Making sriov-cni-image ..."; \
-		echo "Downloading $(REPO_PATH_CNI)"; \
-		mkdir -p gopath/src/$(ORG_PATH); \
-		mkdir -p $(GOBIN); \
-		pushd gopath/src/ > /dev/null; \
-		go get $(REPO_PATH_CNI) 2>&1 > /tmp/sriov-cni.log || echo "Can ignore no GO files."; \
-		popd > /dev/null; \
-		echo "Patching $(REPO_PATH_CNI)"; \
-		cp sriov-cni/* gopath/src/$(REPO_PATH_CNI)/.; \
-		pushd gopath/src/$(REPO_PATH_CNI)/ > /dev/null; \
-		mkdir -p pkg/vdpa/; \
-		mv vdpadpdk-client.go pkg/vdpa/.; \
-		mv vdpa.go pkg/vdpa/.; \
-		patch -p1 < vdpa_cni_0001.patch; \
-		echo "Glide Update"; \
-		glide update --strip-vendor; \
-		echo "Build CNI binary"; \
-		docker build -t sriov-cni -f ./Dockerfile .; \
-		popd > /dev/null; \
-	fi
+#sriov-cni-image: GOPATH=${PWD}/gopath
+#sriov-cni-image:
+#	@if [ ! -d gopath/src/$(REPO_PATH_CNI) ]; then \
+#		echo ""; \
+#		echo "Making sriov-cni-image ..."; \
+#		echo "Downloading $(REPO_PATH_CNI)"; \
+#		mkdir -p gopath/src/$(ORG_PATH); \
+#		mkdir -p $(GOBIN); \
+#		pushd gopath/src/ > /dev/null; \
+#		go get $(REPO_PATH_CNI) 2>&1 > /tmp/sriov-cni.log || echo "Can ignore no GO files."; \
+#		popd > /dev/null; \
+#		echo "Patching $(REPO_PATH_CNI)"; \
+#		cp sriov-cni/* gopath/src/$(REPO_PATH_CNI)/.; \
+#		pushd gopath/src/$(REPO_PATH_CNI)/ > /dev/null; \
+#		mkdir -p pkg/vdpa/; \
+#		mv vdpadpdk-client.go pkg/vdpa/.; \
+#		mv vdpa.go pkg/vdpa/.; \
+#		patch -p1 < vdpa_cni_0001.patch; \
+#		echo "Glide Update"; \
+#		glide update --strip-vendor; \
+#		echo "Build CNI binary"; \
+#		docker build -t sriov-cni -f ./Dockerfile .; \
+#		popd > /dev/null; \
+#	fi
 
 sriov-dp: GOPATH=${PWD}/gopath
 sriov-dp:
+ifeq ($(SCRATCH),y)
+	@rm -rf gopath/src/$(REPO_PATH_DP)
+endif
 	@if [ ! -d gopath/src/$(REPO_PATH_DP) ]; then \
 		echo ""; \
 		echo "Making sriov-dp ..."; \
@@ -188,5 +219,5 @@ clean:
 	@rm -rf bin/
 	@rm -rf gopath/
 
-.PHONY: build clean server client server-image client-image vdpa-cni vdpa-cni-image sriov-dp httpd-init-image httpd-image scylla-init scylla-image sriov-cni sriov-cni-image
+.PHONY: build clean server client server-image client-image vdpa-cni vdpa-cni-image sriov-dp httpd-init-image httpd-image scylla-init scylla-image sriov-cni sriov-cni-image dpdk-app
 

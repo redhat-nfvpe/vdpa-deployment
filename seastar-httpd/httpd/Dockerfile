@@ -46,30 +46,34 @@ RUN git checkout max/seastar_kubecon_poc
 # Build
 WORKDIR /root/src/seastar
 RUN ./install-dependencies.sh
-RUN ./configure.py --mode=dev --enable-dpdk --cflags='-g'
-RUN ninja -C build/dev
-RUN cp build/dev/apps/httpd/httpd /usr/bin/httpd
+RUN ./configure.py --mode=release --enable-dpdk --cflags='-g'
+RUN ninja -C build/release
+RUN cp build/release/apps/httpd/httpd /usr/bin/httpd
+RUN cp build/release/apps/seawreck/seawreck /usr/bin/seawreck
 
 # -------- Import stage.
 # BEGIN - Docker 17.05 or higher
-FROM fedora:29
-COPY --from=0 /usr/bin/httpd /usr/bin/httpd
-COPY --from=0 /lib64/libboost_atomic.so.1.66.0 /lib64/libboost_atomic.so.1.66.0
-COPY --from=0 /lib64/libboost_chrono.so.1.66.0 /lib64/libboost_chrono.so.1.66.0
-COPY --from=0 /lib64/libboost_date_time.so.1.66.0 /lib64/libboost_date_time.so.1.66.0
-COPY --from=0 /lib64/libboost_program_options.so.1.66.0 /lib64/libboost_program_options.so.1.66.0
-COPY --from=0 /lib64/libboost_system.so.1.66.0 /lib64/libboost_system.so.1.66.0
-COPY --from=0 /lib64/libboost_thread.so.1.66.0 /lib64/libboost_thread.so.1.66.0
-COPY --from=0 /lib64/libcares.so.2 /lib64/libcares.so.2
-COPY --from=0 /lib64/libcryptopp.so.7 /lib64/libcryptopp.so.7
-COPY --from=0 /lib64/libfmt.so.5 /lib64/libfmt.so.5
-COPY --from=0 /lib64/libhwloc.so.5 /lib64/libhwloc.so.5
-COPY --from=0 /lib64/libltdl.so.7 /lib64/libltdl.so.7
-COPY --from=0 /lib64/libnuma.so.1 /lib64/libnuma.so.1
-COPY --from=0 /lib64/libprotobuf.so.15 /lib64/libprotobuf.so.15
-COPY --from=0 /lib64/libyaml-cpp.so.0.6 /lib64/libyaml-cpp.so.0.6
-COPY --from=0 /lib64/ /tmp/lib64/
+#FROM fedora:29
+#COPY --from=0 /usr/bin/httpd /usr/bin/httpd
+#COPY --from=0 /usr/bin/seawreck /usr/bin/seawreck
+#COPY --from=0 /lib64/libboost_atomic.so.1.66.0 /lib64/libboost_atomic.so.1.66.0
+#COPY --from=0 /lib64/libboost_chrono.so.1.66.0 /lib64/libboost_chrono.so.1.66.0
+#COPY --from=0 /lib64/libboost_date_time.so.1.66.0 /lib64/libboost_date_time.so.1.66.0
+#COPY --from=0 /lib64/libboost_program_options.so.1.66.0 /lib64/libboost_program_options.so.1.66.0
+#COPY --from=0 /lib64/libboost_system.so.1.66.0 /lib64/libboost_system.so.1.66.0
+#COPY --from=0 /lib64/libboost_thread.so.1.66.0 /lib64/libboost_thread.so.1.66.0
+#COPY --from=0 /lib64/libcares.so.2 /lib64/libcares.so.2
+#COPY --from=0 /lib64/libcryptopp.so.7 /lib64/libcryptopp.so.7
+#COPY --from=0 /lib64/libfmt.so.5 /lib64/libfmt.so.5
+#COPY --from=0 /lib64/libhwloc.so.5 /lib64/libhwloc.so.5
+#COPY --from=0 /lib64/libltdl.so.7 /lib64/libltdl.so.7
+#COPY --from=0 /lib64/libnuma.so.1 /lib64/libnuma.so.1
+#COPY --from=0 /lib64/libprotobuf.so.15 /lib64/libprotobuf.so.15
+#COPY --from=0 /lib64/libyaml-cpp.so.0.6 /lib64/libyaml-cpp.so.0.6
+#COPY --from=0 /lib64/ /tmp/lib64/
 # END - Docker 17.05 or higher
+
+RUN dnf install -y jq binutils && dnf clean all
 
 LABEL io.k8s.display-name="vDPA Seastar httpd"
 

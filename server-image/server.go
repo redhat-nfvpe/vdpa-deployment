@@ -72,10 +72,12 @@ func (s *vdpaDpdkServer) loadInterfaces(filePath string) {
 		if err != nil {
 			log.Printf("ERROR: Failed to read input file - %v", err)
 		}
+		/*
 		err = os.Remove(filePath)
 		if err != nil {
 			log.Printf("ERROR: Failed to remove file - %v", err)
 		}
+		*/
 	} else {
 		log.Printf("INFO: loadInterfaces - Using ExampleData.\n")
 		data = exampleData

@@ -22,7 +22,7 @@ while read -r line
 do
   CLI_PARAMS="$CLI_PARAMS -w $line,vdpa=1"
 done < "$file"
-rm $file
+#rm $file
 
 CLI_PARAMS="$CLI_PARAMS --"
 CLI_PARAMS="$CLI_PARAMS --iface $VDPA_VHOST_SOCKETDIR/vdpa-"

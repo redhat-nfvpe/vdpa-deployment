@@ -169,9 +169,18 @@ static int getInterfaces(int argc, int *pPortCnt, int *pPortMask) {
 						}
 
 						if (ifaceRsp.pIface[i].Vhost.Socketpath) {
+							if ((ifaceRsp.pIface[i].Network.Mac) &&
+							    (strcmp(ifaceRsp.pIface[i].Network.Mac,"") != 0)) {
+								snprintf(&macStr[0], DPDK_ARGS_MAX_MAC_STRLEN-1,
+										 ",mac=%s", ifaceRsp.pIface[i].Network.Mac);
+							}
+							else {
+								macStr[0] = '\0';
+							}
+
 							if (ifaceRsp.pIface[i].Vhost.Mode == NETUTIL_VHOST_MODE_SERVER) {
 								snprintf(&myArgsArray[argc++][0], DPDK_ARGS_MAX_ARG_STRLEN-1,
-										 "--vdev=virtio_user%d,path=%s", vhostCnt, ifaceRsp.pIface[i].Vhost.Socketpath);
+										 "--vdev=virtio_user%d,path=%s%s", vhostCnt, ifaceRsp.pIface[i].Vhost.Socketpath, &macStr[0]);
 
 								vhostCnt++;
 								*pPortMask = *pPortMask | 1 << *pPortCnt;
@@ -179,7 +188,7 @@ static int getInterfaces(int argc, int *pPortCnt, int *pPortMask) {
 							}
 							else if (ifaceRsp.pIface[i].Vhost.Mode == NETUTIL_VHOST_MODE_CLIENT) {
 								snprintf(&myArgsArray[argc++][0], DPDK_ARGS_MAX_ARG_STRLEN-1,
-										 "--vdev=virtio_user%d,path=%s,queues=1", vhostCnt, ifaceRsp.pIface[i].Vhost.Socketpath);
+										 "--vdev=virtio_user%d,path=%s%s,queues=1", vhostCnt, ifaceRsp.pIface[i].Vhost.Socketpath, &macStr[0]);
 
 								vhostCnt++;
 								*pPortMask = *pPortMask | 1 << *pPortCnt;
@@ -332,6 +341,8 @@ char** GetArgs(int *pArgc, eDpdkAppType appType)
 
 		//strncpy(&myArgsArray[argc++][0], "--file-prefix=dpdk-app_", DPDK_ARGS_MAX_ARG_STRLEN-1);
 
+		strncpy(&myArgsArray[argc++][0], "--single-file-segments", DPDK_ARGS_MAX_ARG_STRLEN-1);
+
 		if (appType == DPDK_APP_TESTPMD) {
 			strncpy(&myArgsArray[argc++][0], "-l", DPDK_ARGS_MAX_ARG_STRLEN-1);
 			strncpy(&myArgsArray[argc++][0], "1-3", DPDK_ARGS_MAX_ARG_STRLEN-1);
@@ -425,6 +436,11 @@ char** GetArgs(int *pArgc, eDpdkAppType appType)
 			/* hardware will check the packet type. Not sure if vHost supports. */
 			strncpy(&myArgsArray[argc++][0], "--parse-ptype", DPDK_ARGS_MAX_ARG_STRLEN-1);
 
+			for (port = 0; port < portCnt; port++) {
+				strncpy(&myArgsArray[argc++][0], "--eth-dest", DPDK_ARGS_MAX_ARG_STRLEN-1);
+				snprintf(&myArgsArray[argc++][0], DPDK_ARGS_MAX_ARG_STRLEN-1,
+						"%d,00:e8:ca:11:cc:0%x", port, port+1);
+			}
 		}
 		else if (appType == DPDK_APP_L2FWD) {
 			strncpy(&myArgsArray[argc++][0], "-l", DPDK_ARGS_MAX_ARG_STRLEN-1);
