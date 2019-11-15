@@ -1,16 +1,16 @@
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
-  name: vdpa-net-b
+  name: vdpa-net-l3fwd-a
   annotations:
-    k8s.v1.cni.cncf.io/resourceName: intel.com/vdpa_dpdk_b
+    k8s.v1.cni.cncf.io/resourceName: intel.com/vdpa_dpdk_l3fwd_a
 spec:
   config: '{
   "type": "vdpa",
   "cniVersion": "0.3.1",
-  "name": "vdpa-network-b",
+  "name": "vdpa-net-l3fwd-a",
   "kubeconfig": "/etc/cni/net.d/multus.d/multus.kubeconfig",
   "hostNic": "/var/run/vdpa/hostNic.json",
-  "logFile": "/var/log/vdpa-cni-b.log",
+  "logFile": "/var/log/vdpa-cni-l3fwd-a.log",
   "logLevel": "debug"
 }'

@@ -3,7 +3,7 @@ kind: Pod
 metadata:
   name: vdpa-pod-1
   annotations:
-    k8s.v1.cni.cncf.io/networks: vdpa-net-a, vdpa-net-b
+    k8s.v1.cni.cncf.io/networks: vdpa-net-l3fwd-a, vdpa-net-l3fwd-b
 spec:
   containers:
   - name: vdpa-example
@@ -23,19 +23,19 @@ spec:
       requests:
         #memory: 1Gi
         memory: 2Mi
-        intel.com/vdpa_dpdk_a: '1'
-        intel.com/vdpa_dpdk_b: '1'
+        intel.com/vdpa_dpdk_l3fwd_a: '1'
+        intel.com/vdpa_dpdk_l3fwd_b: '1'
       limits:
         #hugepages-1Gi: 2Gi
         hugepages-2Mi: 2048Mi
-        intel.com/vdpa_dpdk_a: '1'
-        intel.com/vdpa_dpdk_b: '1'
+        intel.com/vdpa_dpdk_l3fwd_a: '1'
+        intel.com/vdpa_dpdk_l3fwd_b: '1'
     # Uncomment to control which DPDK App is running in container.
     # If not provided, l3fwd is default.
     #   Options: l2fwd l3fwd testpmd
-    #env:
-    #- name: DPDK_SAMPLE_APP
-    #  value: "l2fwd"
+    env:
+    - name: DPDK_SAMPLE_APP
+      value: "l3fwd"
     #
     # Uncomment to debug DPDK App or to run manually to change
     # DPDK command line options.

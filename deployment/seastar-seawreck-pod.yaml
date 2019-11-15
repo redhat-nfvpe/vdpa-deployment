@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: seastar-httpd-pod
+  name: seastar-seawreck-pod
   annotations:
-    k8s.v1.cni.cncf.io/networks: vdpa-net-httpd
+    k8s.v1.cni.cncf.io/networks: vdpa-net-seawreck
 spec:
   containers:
-  - name: seastar-httpd
+  - name: seastar-seawreck
     image: seastar-httpd:latest
     imagePullPolicy: Never
     securityContext:
@@ -22,16 +22,16 @@ spec:
       requests:
         #memory: 1Gi
         memory: 2Mi
-        intel.com/vdpa_dpdk_httpd: '1'
+        intel.com/vdpa_dpdk_seawreck: '1'
       limits:
         #hugepages-1Gi: 2Gi
         hugepages-2Mi: 2048Mi
-        intel.com/vdpa_dpdk_httpd: '1'
+        intel.com/vdpa_dpdk_seawreck: '1'
     env:
     # Control which Seastar App is running in container.
     #   Options: httpd seawreck
     - name: SEASTAR_APP
-      value: "httpd"
+      value: "seawreck"
     # Uncomment to control set the IP Address of Seastar App.
     # This method has been deprecated in favor of setting the IP
     # MAC Adddress in the 'hostNic.json' file.

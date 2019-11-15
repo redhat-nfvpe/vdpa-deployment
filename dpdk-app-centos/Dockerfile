@@ -1,5 +1,5 @@
 # To build:
-#  docker build --rm -t dpdk-app-centos .
+#  docker build --rm -t dpdk-app-centos -f ./dpdk-app-centos/Dockerfile .
 #
 
 
@@ -28,11 +28,18 @@ RUN cp bin/libnetutil_api.so /lib64/libnetutil_api.so; cp bin/libnetutil_api.h /
 #
 # Download and Build DPDK
 #
-ENV DPDK_VER 19.08
-ENV DPDK_DIR /usr/src/dpdk-${DPDK_VER}
+#ENV DPDK_VER 19.08
+#ENV DPDK_DIR /usr/src/dpdk-${DPDK_VER}
+#WORKDIR /usr/src/
+#RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz
+#RUN tar -xpvf dpdk-${DPDK_VER}.tar.xz
+
+ENV DPDK_DIR /usr/src/dpdk
 WORKDIR /usr/src/
-RUN wget http://fast.dpdk.org/rel/dpdk-${DPDK_VER}.tar.xz
-RUN tar -xpvf dpdk-${DPDK_VER}.tar.xz
+RUN git clone https://gitlab.com/mcoquelin/dpdk-next-virtio.git dpdk
+
+WORKDIR ${DPDK_DIR}
+RUN git checkout origin/kubecon_vdpa_drivers
 
 ENV RTE_TARGET=x86_64-native-linuxapp-gcc
 ENV RTE_SDK=${DPDK_DIR}
@@ -52,8 +59,9 @@ RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linux
 #RUN sed -i -e 's/LIBRTE_PMD_KNI=y/LIBRTE_PMD_KNI=n/' config/common_linuxapp
 
 # Add vhost patch
-COPY ./vhost_substitute.sh ./vhost_substitute.sh
-RUN ./vhost_substitute.sh
+# NOTE: Already in origin/kubecon_vdpa_drivers
+#COPY ./dpdk-app-centos/vhost_substitute.sh ./vhost_substitute.sh
+#RUN ./vhost_substitute.sh
 
 RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
 
@@ -61,11 +69,11 @@ RUN make install T=${RTE_TARGET} DESTDIR=${RTE_SDK}
 # Build TestPmd
 #
 WORKDIR ${DPDK_DIR}/app/test-pmd
-COPY ./dpdk-args.c ./dpdk-args.c
-COPY ./dpdk-args.h ./dpdk-args.h
-COPY ./testpmd_eal_init.txt ./testpmd_eal_init.txt
-COPY ./testpmd_launch_args_parse.txt ./testpmd_launch_args_parse.txt
-COPY ./testpmd_substitute.sh ./testpmd_substitute.sh
+COPY ./dpdk-app-centos/dpdk-args.c ./dpdk-args.c
+COPY ./dpdk-app-centos/dpdk-args.h ./dpdk-args.h
+COPY ./dpdk-app-centos/testpmd_eal_init.txt ./testpmd_eal_init.txt
+COPY ./dpdk-app-centos/testpmd_launch_args_parse.txt ./testpmd_launch_args_parse.txt
+COPY ./dpdk-app-centos/testpmd_substitute.sh ./testpmd_substitute.sh
 RUN ./testpmd_substitute.sh
 RUN make
 RUN cp testpmd /usr/bin/testpmd
@@ -74,11 +82,11 @@ RUN cp testpmd /usr/bin/testpmd
 # Build l2fwd
 #
 WORKDIR ${DPDK_DIR}/examples/l2fwd
-COPY ./dpdk-args.c ./dpdk-args.c
-COPY ./dpdk-args.h ./dpdk-args.h
-COPY ./l2fwd_eal_init.txt ./l2fwd_eal_init.txt
-COPY ./l2fwd_parse_args.txt ./l2fwd_parse_args.txt
-COPY ./l2fwd_substitute.sh ./l2fwd_substitute.sh
+COPY ./dpdk-app-centos/dpdk-args.c ./dpdk-args.c
+COPY ./dpdk-app-centos/dpdk-args.h ./dpdk-args.h
+COPY ./dpdk-app-centos/l2fwd_eal_init.txt ./l2fwd_eal_init.txt
+COPY ./dpdk-app-centos/l2fwd_parse_args.txt ./l2fwd_parse_args.txt
+COPY ./dpdk-app-centos/l2fwd_substitute.sh ./l2fwd_substitute.sh
 RUN ./l2fwd_substitute.sh
 RUN make
 RUN cp build/l2fwd /usr/bin/l2fwd
@@ -87,11 +95,11 @@ RUN cp build/l2fwd /usr/bin/l2fwd
 # Build l3fwd
 #
 WORKDIR ${DPDK_DIR}/examples/l3fwd
-COPY ./dpdk-args.c ./dpdk-args.c
-COPY ./dpdk-args.h ./dpdk-args.h
-COPY ./l3fwd_eal_init.txt ./l3fwd_eal_init.txt
-COPY ./l3fwd_parse_args.txt ./l3fwd_parse_args.txt
-COPY ./l3fwd_substitute.sh ./l3fwd_substitute.sh
+COPY ./dpdk-app-centos/dpdk-args.c ./dpdk-args.c
+COPY ./dpdk-app-centos/dpdk-args.h ./dpdk-args.h
+COPY ./dpdk-app-centos/l3fwd_eal_init.txt ./l3fwd_eal_init.txt
+COPY ./dpdk-app-centos/l3fwd_parse_args.txt ./l3fwd_parse_args.txt
+COPY ./dpdk-app-centos/l3fwd_substitute.sh ./l3fwd_substitute.sh
 RUN ./l3fwd_substitute.sh
 RUN make
 RUN cp build/l3fwd /usr/bin/l3fwd
@@ -111,6 +119,6 @@ COPY --from=0 /lib64/libnetutil_api.so /lib64/libnetutil_api.so
 COPY --from=0 /usr/lib64/libnuma.so.1 /usr/lib64/libnuma.so.1
 # END
 
-COPY ./docker-entrypoint.sh /
+COPY ./dpdk-app-centos/docker-entrypoint.sh /
 ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["dpdk-app"]
