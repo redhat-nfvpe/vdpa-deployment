@@ -46,10 +46,10 @@ RUN git checkout max/seastar_kubecon_poc
 # Build
 WORKDIR /root/src/seastar
 RUN ./install-dependencies.sh
-RUN ./configure.py --mode=release --enable-dpdk --cflags='-g'
-RUN ninja -C build/release
-RUN cp build/release/apps/httpd/httpd /usr/bin/httpd
-RUN cp build/release/apps/seawreck/seawreck /usr/bin/seawreck
+RUN ./configure.py --mode=dev --enable-dpdk
+RUN ninja -C build/dev
+RUN cp build/dev/apps/httpd/httpd /usr/bin/httpd
+RUN cp build/dev/apps/seawreck/seawreck /usr/bin/seawreck
 
 # -------- Import stage.
 # BEGIN - Docker 17.05 or higher
