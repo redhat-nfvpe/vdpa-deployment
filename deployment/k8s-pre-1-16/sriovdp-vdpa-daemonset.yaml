@@ -32,7 +32,7 @@ spec:
       serviceAccountName: sriov-device-plugin
       containers:
       - name: kube-sriovdp
-        image: sriov-device-plugin
+        image: bmcfall/sriov-device-plugin:0.1.4
         imagePullPolicy: Never
         args:
         - --log-dir=sriovdp

@@ -34,18 +34,28 @@ GO code and example YAML files to deploy vDPA VFs in a container running in kube
          * [Scylla Deployment](#scylla-deployment)
 
 ## Overview
-vhost Data Path Acceleration (vDPA) utilizes virtio ring compatible
+virtual Data Path Acceleration (vDPA) utilizes virtio ring compatible
 devices to serve virtio driver directly to enable datapath acceleration
 (i.e. - vrings are implemented in NIC instead of in software on host).
 NICs that support vDPA behave similar to NICs that support SR-IOV in the
 fact that the Physical Function (PF) can be divided up into multiple
-Virtual Functions (VF). 
+Virtual Functions (VF).
+
+For more information on virtio and vDPA, read the
+[Virtio-networking series](https://www.redhat.com/en/virtio-networking-series),
+part of the Red Hat Blog series. In this series, Red Hat examines the
+virtio-networking community work aiming to enhance the open standard
+virtio networking interface.
 
 This repo, in conjunction with several other repos, enable vDPA VFs to
 be used in a container. The following diagram shows the set of components
 used and how this repo fits into the end solution:
 
 ![](doc/images/DPDKApp_In_Container_Using_vDPA.png)
+
+This technology was demonstrated at the following events (see link for
+more details):
+* [KubeCon - North America: San Diego, CA  November 26-28, 2019](doc/events/2019-11-KubeCon-NA/README.md)
 
 ## Quick Start
 To leverage this repo, download this repo, run `make all` and then copy
