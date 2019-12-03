@@ -35,6 +35,9 @@ ENV RTE_TARGET=x86_64-native-linuxapp-gcc
 ENV RTE_SDK=${DPDK_DIR}
 WORKDIR ${DPDK_DIR}
 
+# Lock down code to commit on 11/13/2019
+RUN git checkout 32bf71c3b6774faa0029a62bf6ee9334a7980c84
+
 # DPDK_VER 19.08
 RUN sed -i -e 's/EAL_IGB_UIO=y/EAL_IGB_UIO=n/' config/common_linux
 RUN sed -i -e 's/KNI_KMOD=y/KNI_KMOD=n/' config/common_linux

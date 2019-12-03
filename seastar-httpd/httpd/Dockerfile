@@ -38,10 +38,14 @@ RUN git fetch max
 # Change branches of Seastar
 WORKDIR /root/src/seastar
 RUN git checkout max/kubecon_poc_timer_workaround
+# Lock down code to commit on 11/15/2019
+RUN git checkout 7a454cc105dc24a97fa06b10124cf3850d77d4e9
 
 # Change branches of DPDK
 WORKDIR /root/src/seastar/dpdk
 RUN git checkout max/seastar_kubecon_poc
+# Lock down code to commit on 11/13/2019
+RUN git checkout 0c8ef461ba4525bb2b6a5636cb79a5a7d10df75c
 
 # Build
 WORKDIR /root/src/seastar

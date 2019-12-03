@@ -22,6 +22,8 @@ RUN yum install -y wget numactl-devel git golang make; yum clean all
 WORKDIR /root/go/src/
 RUN go get github.com/openshift/app-netutil 2>&1 > /tmp/UserspaceDockerBuild.log || echo "Can ignore no GO files."
 WORKDIR /root/go/src/github.com/openshift/app-netutil
+# Lock down code to commit on 10/22/2019
+RUN git checkout 156a6eab4812fbfaa3173ace626a453b440da7db
 RUN make c_sample
 RUN cp bin/libnetutil_api.so /lib64/libnetutil_api.so; cp bin/libnetutil_api.h /usr/include/libnetutil_api.h
 
@@ -44,6 +46,10 @@ RUN git checkout origin/kubecon_vdpa_drivers
 ENV RTE_TARGET=x86_64-native-linuxapp-gcc
 ENV RTE_SDK=${DPDK_DIR}
 WORKDIR ${DPDK_DIR}
+
+# Lock down code to commit on 11/13/2019
+RUN git checkout 32bf71c3b6774faa0029a62bf6ee9334a7980c84
+
 # DPDK_VER 19.08
 RUN sed -i -e 's/EAL_IGB_UIO=y/EAL_IGB_UIO=n/' config/common_linux
 RUN sed -i -e 's/KNI_KMOD=y/KNI_KMOD=n/' config/common_linux
