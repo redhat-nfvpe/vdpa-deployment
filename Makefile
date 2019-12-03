@@ -206,6 +206,7 @@ endif
 		echo "Patching $(REPO_PATH_DP)"; \
 		cp sriov-dp/* gopath/src/$(REPO_PATH_DP)/.; \
 		pushd gopath/src/$(REPO_PATH_DP)/ > /dev/null; \
+		git checkout bf28fdc3e2d9dd2edcc4f0bceb58448ac9317696; \
 		patch -p1 < vdpa_dp_0001.patch; \
 		patch -p1 < vdpa_dp_0002.patch; \
 		echo "Build binary"; \
