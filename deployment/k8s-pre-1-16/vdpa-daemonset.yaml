@@ -19,7 +19,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: vdpadpdk-daemonset
-        image: bmcfall/vdpa-daemonset:0.1.4
+        image: vdpa-daemonset:latest
         imagePullPolicy: Never
         securityContext:
           privileged: true
@@ -38,7 +38,7 @@ spec:
             hugepages-1Gi: 2Gi
         #command: ["sleep", "infinity"]
       - name: vdpa-grpc-server
-        image: bmcfall/vdpa-grpc-server:0.1.4
+        image: vdpa-grpc-server:latest
         imagePullPolicy: Never
         securityContext:
           privileged: true

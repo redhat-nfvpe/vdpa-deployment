@@ -24,7 +24,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: vdpadpdk-daemonset
-        image: bmcfall/vdpa-daemonset:0.1.4
+        image: vdpa-daemonset:latest
         imagePullPolicy: Never
         startupProbe:
           failureThreshold: 30
@@ -46,7 +46,7 @@ spec:
             hugepages-2Mi: 2048Mi
         #command: ["sleep", "infinity"]
       - name: vdpa-grpc-server
-        image: bmcfall/vdpa-grpc-server:0.1.4
+        image: vdpa-grpc-server:latest
         imagePullPolicy: Never
         startupProbe:
           failureThreshold: 30

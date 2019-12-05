@@ -37,15 +37,15 @@ spec:
     securityContext:
       privileged: true
     volumeMounts:
-    - mountPath: /etc/podinfo
-      name: podinfo
+    - mountPath: /etc/podnetinfo
+      name: podnetinfo
       readOnly: false
     - mountPath: /var/lib/cni/usrspcni/
       name: shared-dir
     - mountPath: /var/run/scylla/
       name: shared-scylla-dir
   volumes:
-  - name: podinfo
+  - name: podnetinfo
     downwardAPI:
       items:
         - path: "labels"
