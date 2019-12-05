@@ -13,8 +13,8 @@ spec:
         readOnly: false
       - name: log
         mountPath: /var/log
-      - name: podinfo
-        mountPath: /etc/podinfo
+      - name: podnetinfo
+        mountPath: /etc/podnetinfo
     command: ["sleep", "infinity"]
   volumes:
     - name: vhostsock
@@ -23,7 +23,7 @@ spec:
     - name: log
       hostPath:
         path: /var/log
-    - name: podinfo
+    - name: podnetinfo
       downwardAPI:
         items:
           - path: "annotations"

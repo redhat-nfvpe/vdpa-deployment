@@ -7,13 +7,13 @@ metadata:
 spec:
   containers:
   - name: vdpa-example
-    image: bmcfall/dpdk-app-centos:0.1.4
+    image: dpdk-app-centos:latest
     imagePullPolicy: Never
     securityContext:
       privileged: true
     volumeMounts:
-    - mountPath: /etc/podinfo
-      name: podinfo
+    - mountPath: /etc/podnetinfo
+      name: podnetinfo
       readOnly: false
     - mountPath: /var/lib/cni/usrspcni/
       name: shared-dir
@@ -41,7 +41,7 @@ spec:
     # DPDK command line options.
     #command: ["sleep", "infinity"]
   volumes:
-  - name: podinfo
+  - name: podnetinfo
     downwardAPI:
       items:
         - path: "labels"
