@@ -72,6 +72,8 @@ Components of POC:
   protocol built in, so it can negogiate and manage the virtio devices,
   which includes a vDPA device.
 
+For more details on all the components used in the PoC, see [Details](DETAILS.md)
+
 ## Making High Performance Networking Applications Work On Hybrid Clouds
 This presentation builds on the previous presentation. Where as
 the first concentrates on using a high-speed vDPA interface in a
