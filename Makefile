@@ -144,12 +144,23 @@ scylla-image:
 #		popd > /dev/null; \
 #	fi
 
-sriov-dp: GOPATH=${PWD}/gopath
-sriov-dp:
+export ALT_DP_REPO=https://github.com/amorenoz/sriov-network-device-plugin.git
+export ALT_DP_REF=vdpaInfoProvider
+
+clean-sriov-dp:
+	if [ -d gopath/src/$(REPO_PATH_DP) ]; then \
+	    pushd gopath/src/$(REPO_PATH_DP) > /dev/null; \
+	    make clean >/dev/null; \
+	    popd > /dev/null; \
+	    rm -fr gopath/src/$(REPO_PATH_DP); \
+	fi \
+
 ifeq ($(SCRATCH),y)
-	@rm -rf gopath/src/$(REPO_PATH_DP)
-endif
-	@if [ ! -d gopath/src/$(REPO_PATH_DP) ]; then \
+sriov-dp: clean-sriov-dp
+ endif
+sriov-dp: export GOPATH=${PWD}/gopath
+sriov-dp:
+	if [ ! -d gopath/src/$(REPO_PATH_DP) ]; then \
 		echo ""; \
 		echo "Making sriov-dp ..."; \
 		echo "Downloading $(REPO_PATH_DP)"; \
@@ -157,12 +168,15 @@ endif
 		pushd gopath/src/ > /dev/null; \
 		go get $(REPO_PATH_DP) 2>&1 > /tmp/sriov-dp.log || echo "Can ignore no GO files."; \
 		popd > /dev/null; \
-		echo "Patching $(REPO_PATH_DP)"; \
-		cp sriov-dp/* gopath/src/$(REPO_PATH_DP)/.; \
-		pushd gopath/src/$(REPO_PATH_DP)/ > /dev/null; \
-		git checkout bf28fdc3e2d9dd2edcc4f0bceb58448ac9317696; \
-		patch -p1 < vdpa_dp_0001.patch; \
-		patch -p1 < vdpa_dp_0002.patch; \
+		if [ -n "$(ALT_DP_REPO)" ];  then \
+		    pushd gopath/src/$(REPO_PATH_DP) > /dev/null; \
+		    git remote add alt $(ALT_DP_REPO) && git fetch alt; \
+		    if [ -n "$(ALT_DP_REF)" ]; then  \
+			git checkout alt/$(ALT_DP_REF) -b alt; \
+		    fi; \
+		    popd > /dev/null; \
+		fi; \
+		pushd gopath/src/$(REPO_PATH_DP) > /dev/null; \
 		echo "Build binary"; \
 		make; \
 		echo "Build docker image \"sriov-device-plugin\""; \
@@ -170,9 +184,10 @@ endif
 		popd > /dev/null; \
 	fi
 
-clean:
+clean: clean-sriov-dp 
+	@export GOPATH=${PWD}/gopath && go clean --modcache
 	@rm -rf bin/
 	@rm -rf gopath/
 
-.PHONY: build clean sriov-dp httpd-init-image httpd-image scylla-init scylla-image sriov-cni sriov-cni-image dpdk-app
+.PHONY: build clean sriov-dp clean-sriov-dp httpd-init-image httpd-image scylla-init scylla-image sriov-cni sriov-cni-image dpdk-app
 
