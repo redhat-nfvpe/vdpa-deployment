@@ -27,7 +27,7 @@ spec:
         effect: NoSchedule
       containers:
       - name: kube-sriov-cni
-        image: nfvpe/sriov-cni:vdpa
+        image: nfvpe/sriov-cni:latest
         imagePullPolicy: Never
         securityContext:
           privileged: true
