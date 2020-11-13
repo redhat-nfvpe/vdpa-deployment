@@ -20,6 +20,9 @@ help:
 	@echo " make sriov-dp         - Make the docker image that runs the SR-IOV Device"
 	@echo "                         Plugin with vDPA changes integrated. Append SCRATCH=y"
 	@echo "                         re-download upstream repo and to build image using '--no-cache'."
+	@echo " make sriov-cni        - Make the SR-IOV CNI binary with the vDPA changes"
+	@echo "                         integrated. Binary needs to copied to proper location"
+	@echo "                         once complete (i.e. - /opt/cni/bin/.)."
 	@echo ""
 	@echo " make                  - Build all the local sub-projects locally."
 	@echo " make clean            - Cleanup all build artifacts."
@@ -33,18 +36,11 @@ help:
 	@echo "Archive (not used anymore and may be deleted in future):"
 	@echo " make scylla-init      - Build the GO code that runs in the Scylla Init container."
 	@echo " make scylla-image     - Make the docker image that runs the Scylla Init code."
-	@echo " make sriov-cni        - Make the SR-IOV CNI binary with the vDPA changes"
-	@echo "                         integrated. Binary needs to copied to proper location"
-	@echo "                         once complete (i.e. - /opt/cni/bin/.)."
 	@echo ""
 	@echo "Other:"
 	@echo " glide update --strip-vendor - Recalculate dependancies and update *vendor\*"
 	@echo "   with proper packages."
 	@echo ""
-#	@echo " make vdpa-cni-image   - Build the vDPA CNI in a docker image. When run as a"
-#	@echo "                         daemonset, will install the built CNI binary in /opt/cni/bin/."
-#	@echo " make sriov-cni-image  - Build the SR-IOV CNI as a docker image. When run as a"
-#	@echo "                         daemonset, will install the built CNI binary in /opt/cni/bin/."
 
 
 #
@@ -55,49 +51,6 @@ httpd-init:
 
 scylla-init:
 	@cd scylla-init-container && go build -o ${GOBIN}/scylla-init -v
-
-export ORG_PATH="github.com/intel"
-export REPO_PATH_CNI="${ORG_PATH}/sriov-cni"
-export REPO_PATH_DP="${ORG_PATH}/sriov-network-device-plugin"
-export GOBIN=${PWD}/bin
-
-# TBD
-# sriov-cni: GOPATH=${PWD}/gopath
-# sriov-cni:
-# ifeq ($(SCRATCH),y)
-# 	@rm -rf gopath/src/$(REPO_PATH_CNI)
-# endif
-# 	@if [ ! -d gopath/src/$(REPO_PATH_CNI) ]; then \
-# 		echo ""; \
-# 		echo "Making sriov-cni ..."; \
-# 		echo "Downloading $(REPO_PATH_CNI)"; \
-# 		mkdir -p gopath/src/$(ORG_PATH); \
-# 		mkdir -p $(GOBIN); \
-# 		pushd gopath/src/ > /dev/null; \
-# 		go get $(REPO_PATH_CNI) 2>&1 > /tmp/sriov-cni.log || echo "Can ignore no GO files."; \
-# 		popd > /dev/null; \
-# 		echo "Patching $(REPO_PATH_CNI)"; \
-# 		cp sriov-cni/* gopath/src/$(REPO_PATH_CNI)/.; \
-# 		pushd gopath/src/$(REPO_PATH_CNI)/ > /dev/null; \
-# 		mkdir -p pkg/vdpa/; \
-# 		mv vdpadpdk-client.go pkg/vdpa/.; \
-# 		mv vdpa.go pkg/vdpa/.; \
-# 		patch -p1 < vdpa_cni_0001.patch; \
-# 		echo "Glide Update"; \
-# 		glide update --strip-vendor; \
-# 		echo "Build CNI binary"; \
-# 		make; \
-# 		cp build/sriov $(GOBIN)/.; \
-# 		echo ""; \
-# 		echo "Run \"sudo cp bin/sriov /opt/cni/bin/.\""; \
-# 		echo ""; \
-# 		popd > /dev/null; \
-# 	fi
-
-# Make Docker Images
-#
-#vdpa-cni-image:
-#	@docker build --rm -t vdpa-cni -f ./vdpa-cni/images/Dockerfile .
 
 dpdk-app:
 	@echo ""
@@ -119,36 +72,57 @@ scylla-image:
 	@echo "Making scylla-image $(NO_CACHE) ..."
 	@docker build $(NO_CACHE) --rm -t scylla-init-container -f ./scylla-init-container/Dockerfile .
 
-#sriov-cni-image: GOPATH=${PWD}/gopath
-#sriov-cni-image:
-#	@if [ ! -d gopath/src/$(REPO_PATH_CNI) ]; then \
-#		echo ""; \
-#		echo "Making sriov-cni-image ..."; \
-#		echo "Downloading $(REPO_PATH_CNI)"; \
-#		mkdir -p gopath/src/$(ORG_PATH); \
-#		mkdir -p $(GOBIN); \
-#		pushd gopath/src/ > /dev/null; \
-#		go get $(REPO_PATH_CNI) 2>&1 > /tmp/sriov-cni.log || echo "Can ignore no GO files."; \
-#		popd > /dev/null; \
-#		echo "Patching $(REPO_PATH_CNI)"; \
-#		cp sriov-cni/* gopath/src/$(REPO_PATH_CNI)/.; \
-#		pushd gopath/src/$(REPO_PATH_CNI)/ > /dev/null; \
-#		mkdir -p pkg/vdpa/; \
-#		mv vdpadpdk-client.go pkg/vdpa/.; \
-#		mv vdpa.go pkg/vdpa/.; \
-#		patch -p1 < vdpa_cni_0001.patch; \
-#		echo "Glide Update"; \
-#		glide update --strip-vendor; \
-#		echo "Build CNI binary"; \
-#		docker build -t sriov-cni -f ./Dockerfile .; \
-#		popd > /dev/null; \
-#	fi
+# SRI-IOV CNI and DP configuration
+export ORG_PATH="github.com/intel"
+export REPO_PATH_CNI="${ORG_PATH}/sriov-cni"
+export REPO_PATH_DP="${ORG_PATH}/sriov-network-device-plugin"
+export GOBIN=${PWD}/bin
+
+## SR-IOV CNI
+export ALT_CNI_REPO=https://github.com/amorenoz/sriov-cni.git
+export ALT_CNI_REF=rfe/vdpa
+
+clean-sriov-cni:
+	@if [ -d gopath/src/$(REPO_PATH_CNI) ]; then \
+	    pushd gopath/src/$(REPO_PATH_CNI) > /dev/null; \
+	    make clean >/dev/null; \
+	    popd > /dev/null; \
+	    rm -fr gopath/src/$(REPO_PATH_CNI); \
+	fi \
+
+ifeq ($(SCRATCH),y)
+sriov-cni: clean-sriov-cni
+ endif
+sriov-cni: export GOPATH=${PWD}/gopath
+sriov-cni:
+	@if [ ! -d gopath/src/$(REPO_PATH_CNI) ]; then \
+		echo ""; \
+		echo "Making sriov-cni ..."; \
+		echo "Downloading $(REPO_PATH_CNI)"; \
+		mkdir -p gopath/src/$(ORG_PATH); \
+		pushd gopath/src/ > /dev/null; \
+		go get $(REPO_PATH_CNI) 2>&1 > /tmp/sriov-dp.log || echo "Can ignore no GO files."; \
+		popd > /dev/null; \
+		if [ -n "$(ALT_CNI_REPO)" ];  then \
+		    echo "Checking out alternative repository $(ALT_CNI_REPO):$(ALT_CNI_REF)"; \
+		    pushd gopath/src/$(REPO_PATH_CNI) > /dev/null; \
+		    git remote add alt $(ALT_CNI_REPO) && git fetch alt; \
+		    if [ -n "$(ALT_CNI_REF)" ]; then  \
+			git checkout alt/$(ALT_CNI_REF) -b alt; \
+		    fi; \
+		    popd > /dev/null; \
+		fi; \
+		pushd gopath/src/$(REPO_PATH_CNI) > /dev/null; \
+		echo "Build CNI image"; \
+		make image; \
+		popd > /dev/null; \
+	fi
 
 export ALT_DP_REPO=https://github.com/amorenoz/sriov-network-device-plugin.git
 export ALT_DP_REF=vdpaInfoProvider
 
 clean-sriov-dp:
-	if [ -d gopath/src/$(REPO_PATH_DP) ]; then \
+	@if [ -d gopath/src/$(REPO_PATH_DP) ]; then \
 	    pushd gopath/src/$(REPO_PATH_DP) > /dev/null; \
 	    make clean >/dev/null; \
 	    popd > /dev/null; \
@@ -160,7 +134,7 @@ sriov-dp: clean-sriov-dp
  endif
 sriov-dp: export GOPATH=${PWD}/gopath
 sriov-dp:
-	if [ ! -d gopath/src/$(REPO_PATH_DP) ]; then \
+	@if [ ! -d gopath/src/$(REPO_PATH_DP) ]; then \
 		echo ""; \
 		echo "Making sriov-dp ..."; \
 		echo "Downloading $(REPO_PATH_DP)"; \
@@ -184,10 +158,10 @@ sriov-dp:
 		popd > /dev/null; \
 	fi
 
-clean: clean-sriov-dp 
+clean: clean-sriov-dp clean-sriov-cni
 	@export GOPATH=${PWD}/gopath && go clean --modcache
 	@rm -rf bin/
 	@rm -rf gopath/
 
-.PHONY: build clean sriov-dp clean-sriov-dp httpd-init-image httpd-image scylla-init scylla-image sriov-cni sriov-cni-image dpdk-app
+.PHONY: build clean sriov-dp clean-sriov-dp httpd-init-image httpd-image scylla-init scylla-image sriov-cni clean-sriov-cni dpdk-app
 
