@@ -14,7 +14,6 @@ MAINTAINER Billy McFall <bmcfall@redhat.com>
 #
 # Install required packages
 #
-RUN rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO && curl -s https://mirror.go-repo.io/centos/go-repo.repo | tee /etc/yum.repos.d/go-repo.repo
 RUN yum groupinstall -y "Development Tools"
 RUN yum install -y git golang make; yum clean all
 # Debug Tools (if needed):
