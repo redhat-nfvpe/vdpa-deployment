@@ -26,4 +26,8 @@ RUN meson build; cd build; ninja
 
 RUN cp build/app/dpdk-testpmd  /usr/bin
 
+COPY testpmd-wrapper.sh /root
+RUN chmod +x /root/testpmd-wrapper.sh
+
+WORKDIR /root
 
