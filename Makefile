@@ -7,22 +7,18 @@ NO_CACHE=--no-cache
 endif
 
 # Default to build
-all: sriov-dp httpd-init-image httpd-image dpdk-app vdpa-cni
+all: sriov-dp sriov-cni dpdk-devel
 
 help:
 	@echo "Make Targets:"
-	@echo " make dpdk-app         - Make the docker image that runs the DPDK l3fwd/l2fwd/testpmd."
-	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
-	@echo " make httpd-init-image - Make the docker image that runs the Seastar httpd Init code."
-	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
-	@echo " make httpd-image      - Make the docker image that runs the Seastar httpd."
-	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo " make sriov-dp         - Make the docker image that runs the SR-IOV Device"
 	@echo "                         Plugin with vDPA changes integrated. Append SCRATCH=y"
 	@echo "                         re-download upstream repo and to build image using '--no-cache'."
 	@echo " make sriov-cni        - Make the SR-IOV CNI binary with the vDPA changes"
 	@echo "                         integrated. Binary needs to copied to proper location"
 	@echo "                         once complete (i.e. - /opt/cni/bin/.)."
+	@echo " make dpdk-devel       - Make the docker image that runs testpmd. Useful for testing or development purposes"
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo ""
 	@echo " make                  - Build all the local sub-projects locally."
 	@echo " make clean            - Cleanup all build artifacts."
@@ -37,6 +33,13 @@ help:
 	@echo " make scylla-init      - Build the GO code that runs in the Scylla Init container."
 	@echo " make scylla-image     - Make the docker image that runs the Scylla Init code."
 	@echo ""
+	@echo "WIP: The following targets do not currently work. They need to be reworked:"
+	@echo " make dpdk-app         - Make the docker image that runs the DPDK l3fwd/l2fwd/testpmd."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
+	@echo " make httpd-init-image - Make the docker image that runs the Seastar httpd Init code."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
+	@echo " make httpd-image      - Make the docker image that runs the Seastar httpd."
+	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo "Other:"
 	@echo " glide update --strip-vendor - Recalculate dependancies and update *vendor\*"
 	@echo "   with proper packages."
@@ -44,33 +47,33 @@ help:
 
 
 #
-# Make Binaries
+# Archive or WIP targets
 #
-httpd-init:
-	@cd seastar-httpd/init-container && go build -o ${GOBIN}/httpd-init -v
-
-scylla-init:
-	@cd scylla-init-container && go build -o ${GOBIN}/scylla-init -v
-
-dpdk-app:
-	@echo ""
-	@echo "dpdk-app $(NO_CACHE) ..."
-	@docker build $(NO_CACHE) --rm -t dpdk-app-centos -f ./dpdk-app-centos/Dockerfile .
-
-httpd-image:
-	@echo ""
-	@echo "Making httpd-image $(NO_CACHE) ..."
-	@docker build $(NO_CACHE) --rm -t seastar-httpd -f ./seastar-httpd/httpd/Dockerfile .
-
-httpd-init-image:
-	@echo ""
-	@echo "Making httpd-init-image $(NO_CACHE) ..."
-	@docker build $(NO_CACHE) --rm -t httpd-init-container -f ./seastar-httpd/init-container/Dockerfile .
-
-scylla-image:
-	@echo ""
-	@echo "Making scylla-image $(NO_CACHE) ..."
-	@docker build $(NO_CACHE) --rm -t scylla-init-container -f ./scylla-init-container/Dockerfile .
+#httpd-init:
+#	@cd seastar-httpd/init-container && go build -o ${GOBIN}/httpd-init -v
+#
+#scylla-init:
+#	@cd scylla-init-container && go build -o ${GOBIN}/scylla-init -v
+#
+#dpdk-app:
+#	@echo ""
+#	@echo "dpdk-app $(NO_CACHE) ..."
+#	@docker build $(NO_CACHE) --rm -t dpdk-app-centos -f ./dpdk-app-centos/Dockerfile .
+#
+#httpd-image:
+#	@echo ""
+#	@echo "Making httpd-image $(NO_CACHE) ..."
+#	@docker build $(NO_CACHE) --rm -t seastar-httpd -f ./seastar-httpd/httpd/Dockerfile .
+#
+#httpd-init-image:
+#	@echo ""
+#	@echo "Making httpd-init-image $(NO_CACHE) ..."
+#	@docker build $(NO_CACHE) --rm -t httpd-init-container -f ./seastar-httpd/init-container/Dockerfile .
+#
+#scylla-image:
+#	@echo ""
+#	@echo "Making scylla-image $(NO_CACHE) ..."
+#	@docker build $(NO_CACHE) --rm -t scylla-init-container -f ./scylla-init-container/Dockerfile .
 
 # SRI-IOV CNI and DP configuration
 export ORG_PATH="github.com/intel"
@@ -163,5 +166,10 @@ clean: clean-sriov-dp clean-sriov-cni
 	@rm -rf bin/
 	@rm -rf gopath/
 
-.PHONY: build clean sriov-dp clean-sriov-dp httpd-init-image httpd-image scylla-init scylla-image sriov-cni clean-sriov-cni dpdk-app
 
+dpdk-devel:
+	@echo ""
+	@echo "dpdk-app-devel $(NO_CACHE) ..."
+	@cd dpdk-app-devel; docker build $(NO_CACHE) --rm -t dpdk-app-devel .
+	
+.PHONY: build clean sriov-dp clean-sriov-dp sriov-cni clean-sriov-cni dpdk-devel
