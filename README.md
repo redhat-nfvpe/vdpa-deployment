@@ -1,416 +1,232 @@
 # vdpa-deployment
-GO code and example YAML files to deploy vDPA VFs in a container running in kubernetes.
-
-   * [Overview](#overview)
-   * [Quick Start](#quick-start)
-      * [Kubernetes < 1.16](#kubernetes--116)
-      * [Prerequisites](#prerequisites)
-   * [vdpa-dpdk-image](#vdpa-dpdk-image)
-     * [hostNic file](#hostnic-file)
-     * [vdpa-cni Image](#vdpa-cni-image)
-   * [server-image](#server-image)
-      * [client-image](#client-image)
-      * [gRPC proto](#grpc-proto)
-   * [SR-IOV Device Plugin](#sr-iov-device-plugin)
-      * [vDPA Setup](#vdpa-setup)
-      * [sriov-dp](#sriov-dp)
-      * [Network-Attachment-Definition](#network-attachment-definition)
-      * [ConfigMap](#configmap)
-      * [SR-IOV Device Plugin Daemonset](#sr-iov-device-plugin-daemonset)
-   * [vdpa-cni](#vdpa-cni)
-   * [Sample Application](#sample-application)
-      * [dpdk-app-centos](#dpdk-app-centos)
-      * [seastar-httpd](#seastar-httpd)
-         * [init-container](#init-container)
-         * [httpd](#httpd)
-         * [Seastar Deployment](#seastar-deployment)
-   * [Docker Hub](#docker-hub)
-   * [Archive](#archive)
-      * [sriov-cni](#sriov-cni)
-        * [sriov-cni Image](#sriov-cni-image)
-      * [Scylla](#scylla)
-         * [Scylla Init-Container](#scylla-init-container)
-         * [Scylla Docker Image](#scylla-docker-image)
-         * [Scylla Deployment](#scylla-deployment)
+Example YAML files to deploy vDPA VFs in a container running in kubernetes.
 
 ## Overview
-virtual Data Path Acceleration (vDPA) utilizes virtio ring compatible
-devices to serve virtio driver directly to enable datapath acceleration
-(i.e. - vrings are implemented in NIC instead of in software on host).
-NICs that support vDPA behave similar to NICs that support SR-IOV in the
-fact that the Physical Function (PF) can be divided up into multiple
-Virtual Functions (VF).
+VirtIO Data Path Acceleration (vDPA) is a technology that enables pods to use
+accelerated network interfaces without having to include vendor specific
+drivers. This is possible because vDPA-capable NICs implement the virtIO
+datapath. The vDPA Framework is in charge of translating the vendor-specific
+control path (that the NIC understands) to a vendor agnostic protocol
+(to be exposed to the application).
 
-For more information on virtio and vDPA, read the
-[Virtio-networking series](https://www.redhat.com/en/virtio-networking-series),
-part of the Red Hat Blog series. In this series, Red Hat examines the
-virtio-networking community work aiming to enhance the open standard
-virtio networking interface.
+For an overview of the technology, read the
+[vDPA overview blog post](https://www.redhat.com/en/blog/introduction-vdpa-kernel-framework).
+More technical blog entries can also be read in the
+[Virtio-networking series two](https://www.redhat.com/en/blog/virio-networking-series-advanced).
 
-This repo, in conjunction with several other repos, enable vDPA VFs to
-be used in a container. The following diagram shows the set of components
-used and how this repo fits into the end solution:
+Note that, apart from the vDPA kernel framework implemented in the
+linux kernel, there is another vDPA framework in DPDK. However, the DPDK
+framework is out of the scope of this repository for now.
 
-![](doc/images/DPDKApp_In_Container_Using_vDPA.png)
+This repo combines several other repos to enable vDPA VFs to be used in
+containers. The following diagram shows an overview of the end-to-end
+vDPA solution in Kubernetes:
 
-This technology was demonstrated at the following events (see link for
-more details):
-* [KubeCon - North America: San Diego, CA  November 26-28, 2019](doc/events/2019-11-KubeCon-NA/README.md)
+
+![](doc/images/vDPA_SRIOV_design-Legacy-kernel.png)
+
+More information about this solution can be found in the [Design Document](https://docs.google.com/document/d/1DgZuksLVIVD5ZpNUNH7zPUr-8t6GKKQICDLqIwQv-FA)
+
+As shown in the diagram, the Kubernetes vDPA solution will support both
+SR-IOV CNI (for legacy SR-IOV devices) and the [Accelerated Bridge CNI](https://github.com/Mellanox/accelerated-bridge-cni/)
+(for switchdev devices). Currently, this repository focuses on
+using SR-IOV CNI
 
 ## Quick Start
-To leverage this repo, download this repo, run `make all` and then copy
-the vDPA CNI to the proper location:
+To leverage this repo, download this repo, run `make all`:
 
 ```
-   cd $GOPATH/src/
-   go get github.com/redhat-nfvpe/vdpa-deployment
-   cd github.com/redhat-nfvpe/vdpa-deployment/
    make all
-   sudo cp bin/vdpa /opt/cni/bin/.
 ```
 
 `make all` builds the following images/binaries:
-* `vdpa-daemonset` docker image: Located in the
-  **vdpa-dpdk-image** directory. This image runs as a Daemonset on each node
-  and manages the virtio unix socketfiles used by the virtio control channel.
-  See [vdpa-dpdk-image](#vdpa-dpdk-image).
-* `vdpa-grpc-server` docker image: Located in the **server-image**
-  directory. This image is also runs in the same Daemonset on each node as
-  `vdpa-daemonset`. The `vdpa-grpc-server` image provides a gRPC
-  Server for the vDPA CNI to call to retrieve the VF PCI Address to unix
-  socketfile mapping. See [server-image](#server-image).
+
 * `sriov-device-plugin` docker image: Located in the **sriov-dp**
   directory. This image takes the upstream SR-IOV Device Plugin and applies
   some local patches to enable it to work with vDPA as well. See
   [sriov-dp](#sriov-dp).
-* `vdpa` CNI binary: Located in the **vdpa-cni** directory. The binary is
-  located in `bin/vdpa`. This file must be copied to the default CNI directory,
-  typically `/opt/cni/bin/`. See [vdpa-cni](#vdpa-cni).
+* `sriov-cni` binary and docker image: Located in the **sriov-cni** directory.
+  To install the sriov-cni, the binary must be copied to the default CNI directory,
+  typically `/opt/cni/bin/`. Alternatively, a DaemonSet can be deployed which will
+  take care of doing that in all the nodes. See [sriov-cni](#sriov-cni).
+* `dpdk-app-devel` docker image: This image contains a recent DPDK installation
 
-The sample application used in this deployment is the `dpdk-app-centos`
-docker image. The following set of commands will download and build the image.
-```
-   cd $GOPATH/src/
-   go get github.com/openshift/app-netutil
-   cd github.com/openshift/app-netutil/
-   make dpdk_app
-```
+If you don't want to build all the projects from source, docker images
+will be provided for convenience. See [Docker Hub section](#docker-hub)
 
+On multi-node clusters you might need to load the built images
+into the different nodes:
+```
+    ./scripts/load-image.sh nfvpe/sriov-device-plugin user@HOSTNAME
+    ./scripts/load-image.sh nfvpe/sriov-cni user@HOSTNAME
+
+```
 The following set of commands will deploy the images above.
 'NOTE:' Update configMap-vdpa.yaml to match local HW.
 ```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
-   kubectl create -f ./deployment/vdpa-daemonset.yaml
-   kubectl create -f ./deployment/netAttach-vdpa-dpdk-a.yaml
-   kubectl create -f ./deployment/netAttach-vdpa-dpdk-b.yaml
+   kubectl create -f ./deployment/netAttach-vdpa-vhost-mlx.yaml
    kubectl create -f ./deployment/configMap-vdpa.yaml
    kubectl create -f ./deployment/sriovdp-vdpa-daemonset.yaml
    kubectl get node $HOSTNAME -o json | jq '.status.allocatable'
-
-   kubectl create -f ./deployment/vdpa-pod-1.yaml
 ```
 
-The following set of commands will tear down the deployment above. 
+To deploy a sample application, see [Sample Applications](#sample-applications)
+
+The following set of commands will tear down the deployment above.
 ```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
-   kubectl delete pod vdpa-pod-1
    kubectl delete -f ./deployment/sriovdp-vdpa-daemonset.yaml
    kubectl delete -f ./deployment/configMap-vdpa.yaml
-   kubectl delete -f ./deployment/netAttach-vdpa-dpdk-b.yaml
-   kubectl delete -f ./deployment/netAttach-vdpa-dpdk-a.yaml
-   kubectl delete -f ./deployment/vdpa-daemonset.yaml
+   kubectl create -f ./deployment/netAttach-vdpa-vhost-mlx.yaml
+
 ```
 
-### Kubernetes < 1.16
-The above deployment works for Kubernetes 1.16+. In Kubernetes 1.16,
-some of the beta features (like DaemonSets) were removed from beta and
-promoted to GA. If running an older version of Kubernetes, use the
-files located in the `./deployment/k8s-pre-1-16/` subdirectory which
-rollback these changes:
+## Sample Applications
+Once the SR-IOV Device Plugin and SR-IOV CNI have been installed, the application
+consuming the vDPA devices can be started. This repository will provide some
+sample applications:
+
+* **single-pod**: A simgle DPDK pod using a vDPA interface
+* **vdpa-traffic-test**: A simple test that deploys two pods that send packets to each
+    other (using testpmd)
+* More TBD
+
+### single-pod
+The single pod application deploys a pod that runs testpmd on the vdpa device.
+The testpmd arguments can be modified in `deployments/vdpa-single.yaml`
+
+To deploy the application run:
+
 ```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
-   ls deployment/k8s-pre-1-16/
-    sriovdp-vdpa-daemonset.yaml  vdpa-daemonset.yaml
+    kubectl apply -f deployment/vdpa-single.yaml
 ```
+
+Inspect the logs with:
+
+```
+    kubectl apply logs -f vdpa-pod
+```
+
+Delete the application by running:
+
+
+```
+    kubectl delete -f deployment/vdpa-single.yaml
+```
+
+### vdpa-traffic-test
+The traffic test deploys two pods, one generates traffic, the other receives it.
+
+In order to select where the generator and sink runs, node selectors are used.
+
+First, add a label to the node you want the generator to run on:
+
+```
+    kubectl label node GEN_NODENAME vdpa-test-role-gen=true
+```
+
+```
+    kubectl label node SINK_NODENAME vdpa-test-role-sink=true
+```
+
+
+Deploy the application by running:
+
+```
+    kubectl apply -f deployment/vdpa-traffic-test.yaml
+```
+
+Delete the application by running:
+
+```
+    kubectl delete -f deployment/vdpa-traffic-test.yaml
+```
+
 
 ### Prerequisites
 This setup assumes:
 * Running on bare metal.
 * Kubernetes is installed.
 * Multus CNI is installed.
-* vDPA VFs have already been created on the PFs being used.
+* vDPA VFs have already been created and bound to vhost-vdpa driver
 
 For reference, this repo was developed and tested on:
-* Fedora 29 - kernel 5.2.17-100.fc29.x86_64
-* GO: go1.12.7
-* Docker: 19.03.2
-* Kubernetes: v1.16.1
-
-## vdpa-dpdk-image
-vDPA leverages existing userspace virtio/vHost protocol to negotiate
-the vrings used to pass data traffic. A typical vHost implementation
-uses a userspace vSwitch on the host (like OvS-DPDK or VPP), which
-serves as either the server or client of the vHost. Then if running
-a VM, QEMU serves as the other side of the vHost (client or server).
-If not running a VM but a container, then code like a DPDK application
-running in the container serves as the other side of the vHost
-(client or server).
-
-For vDPA, where the vrings are being handled by the hardware (NIC),
-something needs to handle the vhost negotiation on behalf of the
-NIC. In this implementation, this logic is handled by a sample application
-provided by the DPDK library (examples/vdpa) which is built and run
-in a container as a DaemonSet.
-
-The **vdpa-dpdk-image** directory contains the files to build the
-`vdpa-daemonset` docker image. This image runs the vDPA sample
-application from DPDK. The `entrypoint.sh` script waits for a the set
-of PCI Addresses of the vDPA VFs to be written to the file 
-`/var/run/vdpa/pciList.dat`, which is provided by the SR-IOV Device
-Plugin (see [sriov-dp](#sriov-dp)).
-
-The `entrypoint.sh` script then reads this file and passes the set of
-PCI Address associated with the vDPA VF to the vDPA sample application.
-The vDPA sample application then creates the unix socketfiles and handles
-the vring negotiation on behalf of the NIC.
+* Fedora 32 - kernel 5.10.0+ (modified: See [HugePage Cgroup Known Issue](#hugepage-cgroup))
+* GO: go1.14.9
+* Docker: 19.03.11
+* Kubernetes: v1.19.3
 
 
-The `/var/run/vdpa/pciList.dat` file is just a list of PCI Address
-associated with vDPA VFs. For testing purposes, the file can be generated
-manually (where the PCI addresses match the VFs on the server):
-```
-$ sudo vi /var/run/vdpa/pciList.dat
-0000:83:00.2
-0000:83:00.3
-0000:83:00.4
-0000:83:00.5
-0000:83:00.6
-0000:83:00.7
-0000:83:01.0
-0000:83:01.1
-0000:83:01.2
-0000:83:01.3
-0000:83:01.4
-0000:83:01.5
-0000:83:01.6
-0000:83:01.7
-0000:83:02.0
-0000:83:02.1
-```
+### Details
 
-Other components in the solution need the PCI Address to socketfile
-mapping so the other side of the vhost channel can be setup. The vDPA
-sample application has been augmented (with `sed` commands) to export
-this mapping to a file (`/var/run/vdpa/socketList.dat`). This file is
-read by the gRPC Server (see [server-image](#server-image)), which
-exposes the data via a gRPC request/response.
+### Supported Hardwared
+This repo has been tested with:
+- Nvidia Mellanox ConnectX-6 Dx
 
-To build the docker image:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make vdpa-image
-   -- OR --
-   make all
-```
 
-This image will be deployed along with the `vdpa-grpc-server`
-docker image using the following command:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
-   kubectl create -f ./deployment/vdpa-daemonset.yaml
-```
+### Kubernetes-vDPA setup
 
-## server-image
-The **server-image** directory contains the files to build the
-`vdpa-grpc-server` docker image. This image runs a gRPC Server
-that is called from a CNI trying to add a vDPA VF to a container.
-In this solution, the vDPA CNI has been modified with gRPC Client
-code to call this server (see [vdpa-cni](#vdpa-cni)) and retrieve
-the associated unix socketfile. 
-
-To build the docker image:
-
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make server-image
-   -- OR --
-   make all
-```
-
-This image will be deployed along with the `vdpa-daemonset`
-docker image using the following command:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
-   kubectl create -f ./deployment/vdpa-daemonset.yaml
-```
-
-The gRPC Server gets the PCI Address to Socketfile mapping from the
-`/var/run/vdpa/socketList.dat` file, which is generated by the
-`vdpa-dpdk-image`. This file is just a list of JSON structures
-containing a PCI Addresses and the associated socketfile. For
-testing purposes, the file can be generated manually (where the
-PCI addresses match the VFs on the server):
-```
-$ sudo vi /var/run/vdpa/socketList.dat
-[{
-    "pciAddress": "0000:82:00.2",
-    "socketpath": "/var/run/vdpa/vhost/vdpa-0"
-}, {
-    "pciAddress": "0000:82:00.3",
-    "socketpath": "/var/run/vdpa/vhost/vdpa-1"
-}, {
-    "pciAddress": "0000:82:00.4",
-    "socketpath": "/var/run/vdpa/vhost/vdpa-2"
-}]
-```
-
-### client-image
-The client code is used only for testing. The testing is not automated
-yet. Both the client and server can be built and run locally.
-
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make server
-   make client
-```
-
-Then run the server, which runs until killed:
-```
-$ sudo ./bin/vdpa-server 
-2019/10/04 09:56:30 INFO: loadInterfaces - Using ExampleData.
-2019/10/04 09:56:30 INFO: Loaded:
-2019/10/04 09:56:30   PCI: 0000:83:00.2  Socketpath: /var/run/vdpa/vhost/vdpa-0
-2019/10/04 09:56:30   PCI: 0000:83:00.3  Socketpath: /var/run/vdpa/vhost/vdpa-1
-2019/10/04 09:56:30   PCI: 0000:83:00.4  Socketpath: /var/run/vdpa/vhost/vdpa-2
-2019/10/04 09:56:30   PCI: 0000:83:00.5  Socketpath: /var/run/vdpa/vhost/vdpa-3
-2019/10/04 09:56:30   PCI: 0000:83:00.6  Socketpath: /var/run/vdpa/vhost/vdpa-4
-2019/10/04 09:56:30   PCI: 0000:83:00.7  Socketpath: /var/run/vdpa/vhost/vdpa-5
-2019/10/04 09:56:30   PCI: 0000:83:01.0  Socketpath: /var/run/vdpa/vhost/vdpa-6
-2019/10/04 09:56:30   PCI: 0000:83:01.1  Socketpath: /var/run/vdpa/vhost/vdpa-7
-2019/10/04 09:56:30   PCI: 0000:83:01.2  Socketpath: /var/run/vdpa/vhost/vdpa-8
-2019/10/04 09:56:30   PCI: 0000:83:01.3  Socketpath: /var/run/vdpa/vhost/vdpa-9
-2019/10/04 09:56:30   PCI: 0000:83:01.4  Socketpath: /var/run/vdpa/vhost/vdpa-10
-2019/10/04 09:56:30   PCI: 0000:83:01.5  Socketpath: /var/run/vdpa/vhost/vdpa-11
-2019/10/04 09:56:30   PCI: 0000:83:01.6  Socketpath: /var/run/vdpa/vhost/vdpa-12
-2019/10/04 09:56:30   PCI: 0000:83:01.7  Socketpath: /var/run/vdpa/vhost/vdpa-13
-2019/10/04 09:56:30   PCI: 0000:83:02.0  Socketpath: /var/run/vdpa/vhost/vdpa-14
-2019/10/04 09:56:30   PCI: 0000:83:02.1  Socketpath: /var/run/vdpa/vhost/vdpa-15
-2019/10/04 09:56:30 INFO: Starting vdpaDpdk gRPC Server at: /var/run/vdpa/vdpa.sock
-2019/10/04 09:56:30 INFO: vdpaDpdk gRPC Server listening.
-```
-
-Then in another window, run the client, which queries the server for
-one valid PCI Address, and one unknown PCI Address:
-```
-$ sudo ./bin/vdpa-client 
-2019/10/04 09:56:45 INFO: Starting vDPA-DPDK gRPC Client.
-2019/10/04 09:56:45 INFO: Getting socketpath for PCI Address 0000:83:00.5
-2019/10/04 09:56:45 INFO: Retrieved socketpath - /var/run/vdpa/vhost/vdpa-3
-2019/10/04 09:56:45 INFO: Getting socketpath for PCI Address 0000:87:00.5
-2019/10/04 09:56:45 INFO: Retrieved socketpath - 
-$
-```
-
-The server should then output as the requests are received.
-```
-2019/10/04 09:56:45 INFO: Received request for PCI Address 0000:83:00.5
-2019/10/04 09:56:45 INFO: Found File: /var/run/vdpa/vhost/vdpa-3
-2019/10/04 09:56:45 INFO: Received request for PCI Address 0000:87:00.5
-2019/10/04 09:56:45 INFO: No File Found!
-```
-
-They can also be run in containers
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make server-image
-   make client-image
-
-   kubectl create -f server-image/server.yaml
-   kubectl create -f client-image/server.yaml
-```
-
-### gRPC proto
-Under the **grpc** directory, the file **vdpadpdk-msgs.proto**
-defines the gRPC messages used by this server. This file was used
-to generate the file **vdpadpdk-msgs.pb.go**. If the messages need
-to be updated, then this file needs to be regenerated using:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   protoc -I grpc/ grpc/vdpadpdk-msgs.proto --go_out=plugins=grpc:grpc/
-```
-
-This assumes that `protoc` and `protoc-gen-go` are installed on the
-system.
-
-## SR-IOV Device Plugin
-vDPA has a lot in common with SR-IOV in the way that SR-IOV can
-create multiple Virtual Functions (VFs) from a given Physical
-Function (PF). To that end, the SR-IOV Device Plugin has been
-modified to handle vDPA interfaces as well.
-
-The changes are minimal and hopeful they can be officially
-integrated at some time in the future. Because this is just a
-POC and the goal is to change the SR-IOV code as little as
-possible, the changes are only the bare minimum to get vDPA to
-work and extensive error checking was not included.
-
-### vDPA Setup
-This test setup uses one physical NIC (PF) with the associated VFs
-broken into two pools (via the configMaps and Network-Attachment
-Definitions below).
-
-### sriov-dp
-The changes to enable the SR-IOV Device Plugin to also manage
-vDPA interfaces are contained in a patch file located in this
-directory. The top level `Makefile` downloads the SR-IOV Device
-Plugin repo (`github.com/intel/sriov-network-device-plugin`) to
-a `gopath` subdirectory, applies the patch, and builds the code
-using the existing SR-IOV Device Plugin Makefile. The SR-IOV Device
-Plugin repo also has a Dockerfile, which copies the locally built
-binary into the image. This logic was also reused.
-
-The changes in the patch file include:
-* When detecting the VFs based on the input selector criteria, the
-  code verifies the SR-IOV VF from
-  `/sys/bus/pci/devices/<VF_PCIAddr>/physfn/net/`. For vDPA, the same data is
-  found in `/sys/bus/pci/devices/<VF_PCIAddr>/physfn/virtio0/net/`. So
-  code was added to look in additional subdirectory for data.
-* Once final list of VFs has been discovered, write the list to a
-  file (`/var/run/vdpa/pciList.dat`) so the `vdpa-daemonset`
-  image can use it to manage the associated unix socketfiles.
-
-To deploy the SR-IOV Device Plugin, the following steps must be taken:
+To deploy the Kubernetes-vDPA solution, the following steps must be taken:
+* Install SR-IOV CNI
 * Create Network-Attachment-Definition
 * Create ConfigMap
 * Start SR-IOV Device Plugin Daemonset
 
+
+### sriov-cni
+The changes to enable the SR-IOV CNI to also manage vDPA interfaces
+are in this repository:
+
+https://github.com/amorenoz/sriov-cni/tree/rfe/vdpa
+
+#### sriov-cni Image
+
+To build SR-IOV CNI in a Docker image:
+```
+   make sriov-cni
+```
+
+To run:
+```
+   kubectl create -f ./deployment/sriov-cni-daemonset.yaml
+```
+
+As with all DaemonSet YAML files, there is a version of the file for
+Kubernetes versions prior to 1.16 in the `k8s-pre-1-16` subdirectory.
+
+
 #### Network-Attachment-Definition
 The Network-Attachment-Definition define the attributes of the network
 for the interface (in this case a vDPA VF) that is being attached to
-the pod. In this scenario, two interfaces, each with different
-attributes, are being attached, so there needs to be two instances.
+the pod.
+
+There are three sample Network-Attachment-Definition in the `deployment`
+directory. You can modify them freely to match your setup. For more
+information, see the [SR-IOV CNI Configuration reference](https://github.com/k8snetworkplumbingwg/sriov-cni/blob/master/docs/configuration-reference.md)
 
 The following commands setup those networks:
 ```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   kubectl create -f ./deployment/netAttach-vdpa-dpdk-a.yaml
-   kubectl create -f ./deployment/netAttach-vdpa-dpdk-b.yaml
+   kubectl create -f ./deployment/netAttach-vdpa-vhost-mlx.yaml
+   kubectl create -f ./deployment/netAttach-vdpa-vhost-mlx-1000.yaml
+   kubectl create -f ./deployment/netAttach-vdpa-vhost-mlx-2000.yaml
 ```
 
 The following command can be used to determine the set of
 Network-Attachment-Definitions currently created on the system:
 ```
-   kubectl get network-attachment-definitions
-   NAME          AGE
-   vdpa-net-a    4h18m
-   vdpa-net-b    4h18m
+  kubectl get network-attachment-definitions
+  NAME                      AGE
+  vdpa-mlx-vhost-net        24h
+  vdpa-mlx-vhost-net-1000   24h
+  vdpa-mlx-vhost-net-2000   24h
 ```
 
 The following commands delete those networks:
 ```
-   kubectl delete -f ./deployment/netAttach-vdpa-dpdk-a.yaml
-   kubectl delete -f ./deployment/netAttach-vdpa-dpdk-b.yaml
+   kubectl delete -f ./deployment/netAttach-vdpa-vhost-mlx.yaml
+   kubectl delete -f ./deployment/netAttach-vdpa-vhost-mlx-1000.yaml
+   kubectl delete -f ./deployment/netAttach-vdpa-vhost-mlx-2000.yaml
 ```
+
 
 #### ConfigMap
 The ConfigMap provides the filters to the SR-IOV Device-Plugin to
@@ -418,9 +234,19 @@ allow it to select the set of VFs that are available to a given
 Network-Attachment-Definition. The parameter ‘resourceName’ maps
 back to one of the Network-Attachment-Definitions defined earlier.
 
+The SR-IOV Device Plugin has been extended to support an additional
+filter that is used to select the vdpa type to be used: `vdpaType`.
+Supported values are:
+
+* vhost
+* virtio
+
+The following example configMap creates two pools of vdpa devices
+bound to vhost-vdpa driver:
+
 Example:
 ```
-cat deployment/configMap-vdpa.yaml
+cat deployment/configMap-vdpa.yaml 
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -430,30 +256,27 @@ data:
   config.json: |
     {
         "resourceList": [{
-                "resourceName": "vdpa_dpdk_a",
+                "resourceName": "vdpa_ifcvf_vhost",
                 "selectors": {
                     "vendors": ["1af4"],
                     "devices": ["1041"],
-                    "drivers": ["vfio-pci"],
-                    "pfNames": ["enp131s0f0#0-3"]
+                    "drivers": ["ifcvf"],
+                    "vdpaType": "vhost"
                 }
             },
             {
-                "resourceName": "vdpa_dpdk_b",
+                "resourceName": "vdpa_mlx_vhost",
                 "selectors": {
-                    "vendors": ["1af4"],
-                    "devices": ["1041"],
-                    "drivers": ["vfio-pci"],
-                    "pfNames": ["enp131s0f0#4-7"]
+                    "vendors": ["15b3"],
+                    "devices": ["101e"],
+                    "drivers": ["mlx5_core"],
+                    "vdpaType": "vhost"
                 }
             }
         ]
     }
-```
 
-In this example, VFs 0-3 associated with physical interface `enp130s0f0`
-will be assigned to network `vdpa_dpdk_a`, and VFs 4-7 will be
-assigned to network `vdpa_dpdk_b`.
+```
 
 `NOTE:` This file will most likely need to be updated before using to
 match interface on deployed hardware. To obtain the other attributes,
@@ -461,8 +284,13 @@ like vendor and devices, use the ‘lspci’ command:
 ```
 lspci -nn | grep Ethernet
 :
-82:00.0 Ethernet controller [0200]: Red Hat, Inc. Virtio network device [1af4:1041]
-82:00.1 Ethernet controller [0200]: Intel Corporation Device [8086:15fe]
+05:00.1 Ethernet controller [0200]: Intel Corporation Device [8086:15fe]
+05:00.2 Ethernet controller [0200]: Red Hat, Inc. Virtio network device [1af4:1041] (rev 01)
+05:00.3 Ethernet controller [0200]: Red Hat, Inc. Virtio network device [1af4:1041] (rev 01)
+65:00.0 Ethernet controller [0200]: Mellanox Technologies MT2892 Family [ConnectX-6 Dx] [15b3:101d]
+65:00.1 Ethernet controller [0200]: Mellanox Technologies MT2892 Family [ConnectX-6 Dx] [15b3:101d]
+65:00.2 Ethernet controller [0200]: Mellanox Technologies ConnectX Family mlx5Gen Virtual Function [15b3:101e]
+65:00.3 Ethernet controller [0200]: Mellanox Technologies ConnectX Family mlx5Gen Virtual Function [15b3:101e]
 ```
 
 The following command creates the configMap:
@@ -479,7 +307,6 @@ NAMESPACE     NAME                                 DATA   AGE
 kube-public   cluster-info                         2      5d23h
 kube-system   coredns                              1      5d23h
 kube-system   extension-apiserver-authentication   6      5d23h
-:
 kube-system   multus-cni-config                    1      5d23h
 kube-system   sriovdp-config                       1      4h24m
 ```
@@ -487,6 +314,30 @@ kube-system   sriovdp-config                       1      4h24m
 The following command deletes the configMap:
 ```
    kubectl delete -f ./deployment/configMap-vdpa.yaml
+```
+
+#### SR-IOV Device Plugin DaemonSet
+The changes to enable the SR-IOV Device Plugin to also manage
+vDPA interfaces are currently in this repository:
+
+https://github.com/amorenoz/sriov-network-device-plugin/tree/vdpaInfoProvider
+
+To build the SR-IOV Device Plugin run:
+
+```
+   make sriov-dp
+```
+
+To build from scratch:
+
+```
+   make sriov-dp SCRATCH=y
+```
+
+Deploy the SR-IOV Device Plugin by running the following command:
+
+```
+   kubectl create -f ./deployment/sriov-dp-daemonset.yaml
 ```
 
 #### SR-IOV Device Plugin DaemonSet
@@ -524,456 +375,48 @@ looking for VFs that meet the selector’s criteria. This takes a
 couple of seconds to collect. The following command can be used to
 determine the number of detected VFs. (NOTE: This is the allocated
 values and does not change as VFs are doled out.) See
-"intel.com/vdpa_dpdk_a" and "intel.com/vdpa_dpdk_b":
+
 ```
-kubectl get node $HOSTNAME -o json | jq '.status.allocatable'
+for node in $(kubectl get nodes | grep Ready | awk '{print $1}' ); do echo "Node $node:" ; kubectl get node $node -o json | jq '.status.allocatable'; done
+Node virtlab711.virt.lab.eng.bos.redhat.com:
 {
-  "cpu": "64",
-  "ephemeral-storage": "396858657750",
-  "hugepages-1Gi": "64Gi",
-  "intel.com/vdpa_dpdk_a": "4",
-  "intel.com/vdpa_dpdk_b": "4",
-  "memory": "64773512Ki",
+  "cpu": "32",
+  "ephemeral-storage": "859332986687",
+  "hugepages-1Gi": "10Gi",
+  "hugepages-2Mi": "0",
+  "intel.com/vdpa_intel_vhost: "0",
+  "intel.com/vdpa_mlx_vhost": "2",
+  "memory": "120946672Ki",
+  "pods": "110"
+}
+Node virtlab712.virt.lab.eng.bos.redhat.com:
+{
+  "cpu": "32",
+  "ephemeral-storage": "844837472087",
+  "hugepages-1Gi": "10Gi",
+  "hugepages-2Mi": "0",
+  "intel.com/vdpa_intel_vhost: "0",
+  "intel.com/vdpa_mlx_vhost": "2",
+  "memory": "120950288Ki",
   "pods": "110"
 }
 ```
 
-## vdpa-cni
-A new CNI was created to inject vDPA interfaces into a pod. The
-vDPA CNI is currently a bare bones CNI with minimal checks and
-validation.
-
-To build the vDPA CNI:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make vdpa-cni
-   -- OR --
-   make all
-   sudo cp bin/vdpa /opt/cni/bin/.
-```
-
-Because copying the vDPA CNI binary to `/opt/cni/bin/` (or whatever
-directory CNI binaries are run from on the system) requires
-root privilege, it was copied to `bin/` and needs to be copied outside
-of `make`.
-
-The vDPA CNI includes the following functionality:
- * Make gRPC call to vDPA-DPDK gRPC Server to return the unix socketfile
-   associated with a given PCI Address of a VF.
- * Write the vHost data (including the unix socketfile location) to
-   container using the Userspace CNI package.
- * Write IP and MAC address data to container using the Network-Status
-   annotation, which is populated by Multus. The IP and MAC can be
-   passed to the vDPA CNI via a hostNIc file (see below). This is a
-   temporary work around and the vDPA CNI will be enhanced to use
-   common methods of obtaining an IP Address (iPAM) in the future.
-
-### hostNic file
-To configure the IP (non-default network) and MAC Address in a container,
-the vDPA CNI network-attachment-definition has a field, "hostNic", to
-pass the name of a file that contains the data. For example:
-```
-   cat deployment/netAttach-vdpa-dpdk-a.yaml
-   :
-   spec:
-     config: '{
-     "type": "vdpa",
-     "cniVersion": "0.3.1",
-     "name": "vdpa-network-a",
-     :
-     "hostNic": "/var/run/vdpa/hostNic.json",
-     :
-   }'
-
-```
-
-The file is formatted as follows:
-```
-   cat /var/run/vdpa/hostNic.json
-   [{
-       "pciAddress": "0000:83:00.2",
-       "ipAddr": "192.168.133.2",
-       "ipMask": "255.255.255.0",
-       "mac": "00:e8:ca:11:ba:01"
-   }, {
-       "pciAddress": "0000:83:00.3",
-       "ipAddr": "172.16.224.16",
-       "ipMask": "255.255.255.0",
-       "mac": "00:e8:ca:11:ba:02"
-   }, {
-       "pciAddress": "0000:83:00.4",
-       "ipAddr": "172.16.224.17",
-       "ipMask": "255.255.255.0",
-       "mac": "00:e8:ca:11:ba:03"
-   }]
-```
-
-### vdpa-cni Image
-**WARNING!!**
-The vDPA CNI image which is intended to build the
-CNI binary in a container and copy to a host is not working at
-moment. Build locally!
-
-
-The vDPA CNI can be built into a docker image, then the image runs as a
-DaemonSet and installs the CNI binary in `/opt/cni/bin/`.
-
-To build vDPA CNI in a Docker image:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make vdpa-cni-image
-```
-
-To run:
-```
-   kubectl create -f ./deployment/cni/vdpa-cni-daemonset.yaml
-```
-
-As with all DaemonSet YAML files, there is a version of the file for
-Kubernetes versions prior to 1.16 in the `k8s-pre-1-16` subdirectory.
-
-The image was also copied to Docker Hub and can be retrieved using:
-```
-   docker pull bmcfall/vdpa-cni:latest
-```
-
-## Sample Application
-Once the two DaemonSets (SR-IOV Device Plugin and vDPA DPDK Application)
-are up and running, the sample application that is using the vDPA interfaces
-can be started.
-
-To add virtio based interfaces into a DPDK based application in a container,
-the DPDK application needs a unix socket file, which is shared with the host
-through a VolumeMount, and a set of configuration data about how the socketfile
-should be used. Currently, the Userspace CNI uses annotations or configuration
-files to share the data. As mentioned above, the vDPA CNI has been coded
-to leverage the Userspace CNI to share this configuration data with the container.
-
-Once the above data is in the POD, a library has been written with a C and a
-GO API that abstracts out where to look and how to process all data passed in.
-This code is in https://github.com/openshift/app-netutil.
-
-There are two container workloads that are being used that leverage the
-`app-netutil`:
-* `dpdk-app-centos`
-* Seastar-httpd Image
-
-### dpdk-app-centos
-The `dpdk-app-centos` container image includes the `app-netutil` library and
-uses the information gathered to call one of the DPDK sample applications with
-the dynamic data provided. Currently, `dpdk-app-centos` supports the following
-DPDK sample application:
-* `l2fwd`
-* `l3fwd` (default)
-* `testpmd`
-
-Which DPDK sample application is run is controlled by an environmental variable
-(DPDK_SAMPLE_APP) set in the pod spec. If not set, the image defaults to using
-`l3fwd`, which is what is discussed below.
-
-The files needed to build the container are also in the ‘app-netutil’ repo.
-Download the repo:
-```
-   cd $GOPATH/src
-   go get github.com/openshift/app-netutil
-   cd github.com/openshift/app-netutil/
-```
-
-The easiest way to build the image is from the root directory of the repo, run:
-```
-   make dpdk_app
-```
-
-The associated README provides more detail on what the image is doing and to
-change the way the DPDK application is run. There is current no CPU management.
-It is just hardcoded to cores 0 and 1. Hope to address this soon. See: 
-https://github.com/openshift/app-netutil/tree/master/samples/dpdk_app/dpdk-app-centos/
-
-To start the sample application in the pod, run:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   kubectl create -f ./deployment/vdpa-pod-1.yaml
-```
-
-To debug the pod, view the log (while pod is running):
-```
-   sudo cat /var/log/pods/default_vdpa-pod-1_<TAB>/vdpa-example/0.log
-```
-
-`l3fwd` does some simple routing based on a hard-coded routing table.
-The following subnets are assigned to interfaces:
-```
-   Interface 0: Route 192.18.0.0 / 24
-   Interface 1: Route 192.18.1.0 / 24
-   Interface 2: Route 192.18.2.0 / 24
-   Interface 3: Route 192.18.3.0 / 24
-   Interface 4: Route 192.18.4.0 / 24
-   :
-```
-
-In the test setup described in this document, the first four VFs from the physical
-interface will be assigned to network `vdpa-dpdk-a` and the second four VFs from
-the physical interface will be assigned to network `vdpa-dpdk-b`. One VF from each
-network will be assigned to the pod. Within the pod, VF from network `vdpa-dpdk-a`
-will be the first interface assigned to DPDK, and thus will get route 192.18.0.0 / 24
-assigned to it. VF from network `vdpa-dpdk-b` will be the second interface assigned
-to DPDK, and thus will get route 192.18.1.0 / 24 assigned to it. At this time, this
-is not configurable.
-
-### seastar-httpd
-The following sections describe how to build and deploy two
-docker images that implement the Scylla application, Seastar,
-which is an httpd.
-* `httpd-init-container`
-* `seastar-httpd`
-
-#### init-container
-This directory contains code that builds the `app-netutil` library in
-an init container, which gathers the needed vDPA socketfiles. This
-data is written to a file (`/var/run/seastar/seastar_dpdk_dynamic.conf`)
-that can used by the httpd image. The contents of this file look
-something like the following, where the path will vary depending on
-the VFs injected into the container:
-```
-   sudo cat /var/run/seastar/seastar_dpdk_dynamic.conf
-   --vdev=virtio_user0,path=/var/lib/cni/usrspcni/vdpa-7
-```
-
-NOTE: The httpd only takes one interface.
-
-
-To build the httpd init-container image, run:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make httpd-init-image
-   -- OR --
-   make all
-```
-
-#### httpd
-Seastar (https://github.com/scylladb/seastar), from Scylla,
-is an advanced, open-source C++ framework for high-performance
-server applications on modern hardware. This solution is taking
-the upstream code-base, patching it for vDPA, and using it as
-an httpd to demonstrate vDPA as a technology.
-
-To build the httpd image, run:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make httpd-image
-   -- OR --
-   make all
-```
-
-#### Seastar Deployment
-To deploy the httpd image with the Init-Container, make
-sure the steps are followed above to build and deploy the
-SR-IOV Device Plugin, vDPA CNI, and vDPA Daemonset, all with
-vDPA changes.
-
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
-   kubectl create -f ./deployment/seastar-httpd-pod.yaml
-```
-
-This will launch the httpd running on top of a vDPA interface.
-By default, this deployment assigns IP "192.168.133.2" to
-the application. This can be overwritten in the
-`seastar-httpd-pod.yaml` file by uncommenting the following
-lines and setting a new value:
-```
-    #env:
-    #- name: SEASTAR_POD_HTTPD_IPADDR
-    #  value: "192.168.133.2"
-```
-
-To test, ping the IP address and send a curl request over the
-vDPA Interface:
-```
-   $ ping 192.168.133.2
-   PING 192.168.133.2 (192.168.133.2) 56(84) bytes of data.
-   64 bytes from 192.168.133.2: icmp_seq=1 ttl=64 time=0.182 ms
-   64 bytes from 192.168.133.2: icmp_seq=2 ttl=64 time=0.125 ms
-   64 bytes from 192.168.133.2: icmp_seq=3 ttl=64 time=0.133 ms
-   :
-
-   $ curl -X GET "http://192.168.133.2:10000"
-   "hello"
-```
-
-Shortly, an additional Scylla application, Seawreck, will
-be added to the repo. This will drive the httpd better than
-a few pings and curl commands.
 
 ## Docker Hub
-All the images have been pushed to Docker Hub. Check the state of the upstream
-image verses the latest commits to the source code repos. This code is changing
-rapidly and the image may be out of data.
+All the images have been pushed to Docker Hub. TBD
 
-None of the yaml files have been updated to run the download images, so the yaml
-files will need to be prefixed with 'bmcfall/' in all the image names.
+## Known issues and limitations
+### Hugepage Cgroup
+There is an issue inrecent kernels (>=5.7.0) that affects hugetlb-cgroup reservation.
+There are two ways of working arount this issue:
 
-The following image can be retrieved:
-```
-   docker pull bmcfall/dpdk-app-centos:latest
-   docker pull bmcfall/sriov-device-plugin:latest
-   docker pull bmcfall/vdpa-daemonset:latest
-   docker pull bmcfall/vdpa-grpc-server:latest
-   docker pull bmcfall/httpd-init-container:latest
-   docker pull bmcfall/seastar-httpd:latest
-```
+* Build a kernel with [the patch that fixes the issue](https://ozlabs.org/~akpm/mmotm/broken-out/hugetlb_cgroup-fix-offline-of-hugetlb-cgroup-with-reservations.patch)
+* Disable hugepages in your applications. To do that, remove the hugepage mount and
+resource request in your pod deployment file and pass --no-huge to your DPDK app.
+
 
 ## Archive
-This is a POC, so things change as the project moves along. The following
-section is an archive of modules/directories that are no longer being used,
-but keeping around in case we need to fall back on.
-
-### sriov-cni
-The changes to enable the SR-IOV CNI to also manage vDPA interfaces
-were broken into two parts. The change to the existing code are
-contained in a patch file located in this directory. New code to
-manage the virtio unix socket files were placed in two new files
-outside of the patch. These two new files are also in this directory.
-
-The top level `Makefile` downloads the SR-IOV CNI repo
-(`github.com/intel/sriov-cni`) to a `gopath` subdirectory, copies over
-the new source code files, applies the patch, updates glide, and builds
-the code. Because copying the SR-IOV CNI binary to `/opt/cni/bin/`
-requires root privilege, it was copied to `bin/` to be copied outside
-of `make`.
-
-The changes in the patch file include:
-* In the main cmdAdd() function, in the existing check for DPDK Mode, call
-  into the new vDPA code to manage the unix socketfile.
-* Update to glide.yaml to include several Userspace CNI sub-packages.
-  This is needed in the new files to write the socketfile data to the
-  container.
-* When determining the number VFs created, the code inspects the
-  `sriov_numvfs` from `/sys/class/net/<ifname>/device/`, where `<ifname>`
-  is the name of the PF interface and is a symlink to something like
-  `../../devices/pci0000:00/0000:00:03.0/0000:01:00.0/net/<ifname>`.
-  For vDPA, the symlink contains an additional `virtio0` subdirectory, like
-  `../../devices/pci0000:80/0000:80:03.0/0000:83:00.0/virtio0/net/<ifname>`.
-  Added code such that if the `sriov_numvfs` isn't found, try again but
-  first evaluated the symlink, then remove the `virtio0`.
-* Similar changes to above, when mapping from VF PCI Address to name of
-  physical interface (`/sys/bus/pci/devices/<VF_PCIAddr>/physfn/net/`),
-  add `virtio0` into the directory name
-  (`/sys/bus/pci/devices/<VF_PCIAddr>/physfn/virtio0/net/`).
-
-Changes in the new files:
-* `pkg/vdpa/vdpa.go`
-   * Write the vHost data (including the unix socketfile location) to
-     container using the Userspace CNI package.
-* `pkg/vdpa/vdpadpdk-client.go`
-   * Make gRPC call to vDPA-DPDK gRPC Server to return the unix socketfile
-     associated with a given PCI Address of a VF.
-
-#### sriov-cni Image
-
-There were some issues building SR-IOV CNI as packaged in this repo. To
-help get around this, the SR-IOV CNI can be built into a docker image, then
-the image runs as a DaemonSet and installs the CNI binary in `/opt/cni/bin/`.
-
-To build SR-IOV CNI in a Docker image:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make sriov-cni-image
-```
-
-To run:
-```
-   kubectl create -f ./deployment/cni/sriov-cni-daemonset.yaml
-```
-
-As with all DaemonSet YAML files, there is a version of the file for
-Kubernetes versions prior to 1.16 in the `k8s-pre-1-16` subdirectory.
-
-The image was also copied to Docker Hub and can be retrieved using:
-```
-   docker pull bmcfall/sriov-cni:latest
-```
-
-### Scylla
-This is a work in progress and is not fully working with vDPA at
-the moment. The remaining notes are where we are at the moment.
-
-#### Scylla Init-Container
-This repo contains code that builds the `app-netutil` library in
-an init container, which gathers the needed vDPA socketfiles. This
-data is written to a file (`/var/run/scylla/scylla_dpdk_dynamic.conf`)
-that can used by the scylla image. The contents of this file look
-something like the following, where the path will vary depending on
-the VFs injected into the container:
-```
-   sudo cat /var/run/scylla/scylla_dpdk_dynamic.conf
-   --vdev=net_virtio_user0,path=/var/lib/cni/usrspcni/vdpa-0 --vdev=net_virtio_user1,path=/var/lib/cni/usrspcni/vdpa-7
-```
-
-To build the Scylla init-container image, run:
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment
-   make scylla-image
-```
-
-#### Scylla Docker Image
-To build the Scylla image, download the upstream repo (instructions
-located at: https://www.scylladb.com/download/open-source/), apply
-a local patch, and build image:
-```
-   cd ~
-   git clone https://github.com/scylladb/scylla.git
-   cd ~/scylla
-   cp $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/scylla-init-container/scylla_docker_0001.patch .
-   patch -p1 < scylla_docker_0001.patch
-
-   cd dist/docker/redhat/
-   docker build -t scylla .
-```
-
-The patch `scylla_docker_0001.patch` inserts about 10 lines of bash code
-to the script `dist/docker/redhat/scylla-service.sh`. This inserted code
-reads the file generated by the init-container and modifies the variable
-`SCYLLA_ARGS`, which was initialized from `etc/sysconfig/scylla-server`
-as:
-```
-   cat etc/sysconfig/scylla-server
-   :
-   # scylla arguments
-   SCYLLA_ARGS="--log-to-syslog 0 --log-to-stdout 1 --default-log-level info --network-stack posix"
-   :
-```
-
-The string "posix" is replaced so `SCYLLA_ARGS` is ultimately set as:
-```
-   "--log-to-syslog 0 --log-to-stdout 1 --default-log-level info --network-stack native --dpdk-pmd --argv0 '--vdev=net_virtio_user0,path=/var/lib/cni/usrspcni/vdpa-0 --vdev=net_virtio_user1,path=/var/lib/cni/usrspcni/vdpa-7'"
-```
-
-NOTE: There is currently not any error checking. If `SCYLLA_ARGS` is
-not the default as described above, the variable may not update properly.
-
-#### Scylla Deployment
-To deploy the Scylla image with the Init-Container, make sure the steps
-are followed above to build and deploy the SR-IOV Device Plugin, SR-IOV CNI,
-and vDPA Daemonset, all with vDPA changes.
-
-```
-   cd $GOPATH/src/github.com/redhat-nfvpe/vdpa-deployment/
-   kubectl create -f ./deployment/scylla-pod.yaml
-```
-
-NOTE: For testing the Init-Container, since vDPA is not working yet,
-the line `#command: ["sleep", "infinity"]` can be uncommented. This
-will allow the Init-Container of run and generate the file. Then log
-into the Scylla pod and run the script manually. Update the script to
-echo the contents of the variable and not execute `scylla` at this
-time:
-```
-   kubectl exec -it scylla-pod -- sh
-   sh-4.2# vi scylla-service.sh
-   :
-   echo "END:   $SCYLLA_ARGS"
-   #exec /usr/bin/scylla $SCYLLA_ARGS $SEASTAR_IO $DEV_MODE $CPUSET $SCYLLA_DOCKER_ARGS
-
-   sh-4.2# ./scylla-service.sh
-```
+This is a POC that was built (after significant re-work) based on the work
+done for Kubecon 2019. This work can be seen in this repository's history
+and in the [archive docs](docs/events/2019-11-KubeCon-NA/README.md)
