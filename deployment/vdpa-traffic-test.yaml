@@ -2,8 +2,8 @@
 ## The node label "vdpa-test-role: gen" is used to place the generator pod
 ## The node label "vdpa-test-role: sink" is used to place the sink pod
 # Eg:
-# kubectl label nodes <gen-nodename> vdpa-test-role=gen
-# kubectl label nodes <sink-nodename> vdpa-test-role=sink
+# kubectl label nodes <gen-nodename> vdpa-test-role-gen=true
+# kubectl label nodes <sink-nodename> vdpa-test-role-sink=true
 apiVersion: v1
 kind: Pod
 metadata:
@@ -17,7 +17,7 @@ metadata:
       ]'
 spec:
   nodeSelector:
-    vdpa-test-role: gen
+    vdpa-test-role-gen: "true"
   containers:
   - name: vdpa-example
     image: dpdk-app-devel:latest
@@ -82,7 +82,7 @@ metadata:
       ]'
 spec:
   nodeSelector:
-    vdpa-test-role: sink
+    vdpa-test-role-sink: "true"
   containers:
   - name: vdpa-example
     image: dpdk-app-devel:latest
