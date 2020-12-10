@@ -50,10 +50,10 @@ spec:
           readOnly: false
         - name: log
           mountPath: /var/log
-        - name: shared-dir
-          mountPath: /var/run/vdpa
         - name: config-volume
           mountPath: /etc/pcidp
+        - name: device-info
+          mountPath: /var/run/k8s.cni.cncf.io/devinfo/dp
       volumes:
         - name: devicesock
           hostPath:
@@ -61,9 +61,10 @@ spec:
         - name: log
           hostPath:
             path: /var/log
-        - name: shared-dir
+        - name: device-info
           hostPath:
-            path: /var/run/vdpa
+            path: /var/run/k8s.cni.cncf.io/devinfo/dp
+            type: DirectoryOrCreate
         - name: config-volume
           configMap:
             name: sriovdp-config
