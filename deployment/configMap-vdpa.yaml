@@ -23,6 +23,15 @@ data:
                     "drivers": ["mlx5_core"],
                     "vdpaType": "vhost"
                 }
+            },
+            {
+                "resourceName": "vdpa_mlx_virtio",
+                "selectors": {
+                    "vendors": ["15b3"],
+                    "devices": ["101e"],
+                    "drivers": ["mlx5_core"],
+                    "vdpaType": "virtio"
+                }
             }
         ]
     }

@@ -2,7 +2,7 @@ FROM fedora:29
 MAINTAINER Adrián Moreno <amorenoz@redhat.com>
 
 RUN yum groupinstall -y "Development Tools"
-RUN yum install -y wget numactl-devel git meson ninja-build
+RUN yum install -y wget numactl-devel git meson ninja-build iputils ethtool iproute
 
 ARG repo=https://github.com/DPDK/dpdk.git
 ARG version=master
