@@ -1,0 +1,13 @@
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: vdpa-mlx-vhost-net-1000
+  annotations:
+    k8s.v1.cni.cncf.io/resourceName: intel.com/vdpa_mlx_vhost
+spec:
+  config: '{
+  "type": "sriov",
+  "cniVersion": "0.3.1",
+  "name": "sriov-vdpa",
+  "vlan": 1000
+}'

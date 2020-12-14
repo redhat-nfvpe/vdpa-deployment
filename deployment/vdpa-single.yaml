@@ -1,0 +1,61 @@
+## Deploys a single pod that runs testpmd -i on the vdpa interface
+apiVersion: v1
+kind: Pod
+metadata:
+  name: vdpa-pod
+  annotations:
+    k8s.v1.cni.cncf.io/networks: '[
+      {
+        "name": "vdpa-mlx-vhost-net",
+        "mac": "CA:FE:C0:FF:EE:33"
+      }
+      ]'
+spec:
+  containers:
+  - name: vdpa-single
+    image: dpdk-app-devel:latest
+    imagePullPolicy: Never
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /etc/podnetinfo
+      name: podnetinfo
+      readOnly: false
+    - mountPath: /dev/hugepages
+      name: hugepage
+    resources:
+      requests:
+        memory: 1Gi
+        #memory: 2Mi
+        intel.com/vdpa_mlx_vhost: '1'
+      limits:
+        hugepages-1Gi: 2Gi
+        #hugepages-2Mi: 2048Mi
+        intel.com/vdpa_mlx_vhost: '1'
+    env:
+      - name: MAC
+        value: "CA:FE:C0:FF:EE:33"
+    command: ["./testpmd-wrapper.sh",
+              "INTEL_COM_VDPA_MLX_VHOST",
+              "-m", "1024",
+              "--no-pci",
+              "-l", "4,5",
+              "--file-prefix=vdpa-test-gen",
+              "--log-level pmd.net.virtio.init:debug",
+              "--",
+              "-a",
+              "--stats-period", "2",
+              "--forward-mode=txonly"]
+  volumes:
+  - name: podnetinfo
+    downwardAPI:
+      items:
+        - path: "labels"
+          fieldRef:
+            fieldPath: metadata.labels
+        - path: "annotations"
+          fieldRef:
+            fieldPath: metadata.annotations
+  - name: hugepage
+    emptyDir:
+      medium: HugePages

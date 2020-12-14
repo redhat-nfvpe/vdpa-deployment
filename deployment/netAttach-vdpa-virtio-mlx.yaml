@@ -1,0 +1,12 @@
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: vdpa-mlx-virtio-net
+  annotations:
+    k8s.v1.cni.cncf.io/resourceName: intel.com/vdpa_mlx_virtio
+spec:
+  config: '{
+  "type": "sriov",
+  "cniVersion": "0.3.1",
+  "name": "sriov-vdpa"
+}'

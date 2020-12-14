@@ -7,30 +7,30 @@ data:
   config.json: |
     {
         "resourceList": [{
-                "resourceName": "vdpa_dpdk_httpd",
+                "resourceName": "vdpa_ifcvf_vhost",
                 "selectors": {
                     "vendors": ["1af4"],
                     "devices": ["1041"],
-                    "drivers": ["vfio-pci"],
-                    "pfNames": ["enp131s0f0#0-0"]
+                    "drivers": ["ifcvf"],
+                    "vdpaType": "vhost"
                 }
             },
             {
-                "resourceName": "vdpa_dpdk_l3fwd_a",
+                "resourceName": "vdpa_mlx_vhost",
                 "selectors": {
-                    "vendors": ["1af4"],
-                    "devices": ["1041"],
-                    "drivers": ["vfio-pci"],
-                    "pfNames": ["enp131s0f0#1-1"]
+                    "vendors": ["15b3"],
+                    "devices": ["101e"],
+                    "drivers": ["mlx5_core"],
+                    "vdpaType": "vhost"
                 }
             },
             {
-                "resourceName": "vdpa_dpdk_l3fwd_b",
+                "resourceName": "vdpa_mlx_virtio",
                 "selectors": {
-                    "vendors": ["1af4"],
-                    "devices": ["1041"],
-                    "drivers": ["vfio-pci"],
-                    "pfNames": ["enp131s0f0#2-2"]
+                    "vendors": ["15b3"],
+                    "devices": ["101e"],
+                    "drivers": ["mlx5_core"],
+                    "vdpaType": "virtio"
                 }
             }
         ]
