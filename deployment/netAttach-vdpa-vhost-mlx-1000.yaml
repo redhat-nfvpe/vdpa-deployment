@@ -9,5 +9,7 @@ spec:
   "type": "sriov",
   "cniVersion": "0.3.1",
   "name": "sriov-vdpa",
-  "vlan": 1000
+  "vlan": 1000,
+  "trust": "on",
+  "spoofchk": "off"
 }'
