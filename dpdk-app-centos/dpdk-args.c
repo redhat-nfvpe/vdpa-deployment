@@ -396,6 +396,33 @@ static int getInterfaces(int argc, int *pPortCnt, int *pPortMask) {
 								ifaceRsp.pIface[i].NetworkStatus.DeviceInfo.Type);
 						}
 						break;
+					case NETUTIL_TYPE_VDPA: ;
+						struct VdpaDevice* vdpaDev = &ifaceRsp.pIface[i].NetworkStatus.DeviceInfo.Vdpa;
+
+						if (!vdpaDev->Driver) {
+							printf("ERROR: vDPA Driver not found Type=%d\n",
+								ifaceRsp.pIface[i].NetworkStatus.DeviceInfo.Type);
+							continue;
+						}
+						if (strncmp(vdpaDev->Driver, "vhost", 5)) {
+							printf("ERROR: vDPA Driver not supported. Only vhost is supported, device has %s\n",
+								vdpaDev->Driver);
+							continue;
+						}
+						if (!vdpaDev->Path) {
+							printf("ERROR: vDPA Path not found Type=%d\n",
+								ifaceRsp.pIface[i].NetworkStatus.DeviceInfo.Type);
+							continue;
+						}
+
+						snprintf(&myArgsArray[argc++][0], DPDK_ARGS_MAX_ARG_STRLEN-1,
+								"--vdev=virtio_user%d,path=%s,queues=1",
+								 vhostCnt, vdpaDev->Path);
+								vhostCnt++;
+								*pPortMask = *pPortMask | 1 << *pPortCnt;
+								*pPortCnt  = *pPortCnt + 1;
+						break;
+
 					case NETUTIL_TYPE_MEMIF:
 						if (ifaceRsp.pIface[i].NetworkStatus.DeviceInfo.Memif.Path) {
 							char *pRole = NULL;
