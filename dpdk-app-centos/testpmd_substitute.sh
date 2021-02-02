@@ -40,18 +40,24 @@ r testpmd_launch_args_parse.txt
 }' testpmd.c
 
 
-# Add new app-netutil source file to the Makefile.
+# Add new app-netutil source file to meson.build.
 #
-# Search for line with: "SRCS-y += parameters.c".
-# Replace with line:    "SRCS-y += parameters.c dpdk-args.c".
-sed -i -e 's/SRCS-y += parameters.c/SRCS-y += parameters.c dpdk-args.c/' Makefile
+# Search for line with: "sources = files(SRCS-y :=".
+# Append line:          "       'dpdk-args.c'"
+sed -i "/sources = files(/a  \ \ \ \ \ \ \  'dpdk-args.c'," meson.build
 
-
-# Add new app-netutil shared library to the Makefile.
+# Add new app-netutil shared library to meson.build.
 # Contains the C API and GO package which collects the
 # interface data.
 #
-# Search for line with: "SRCS-y += util.c".
-# Append line:          "LDLIBS += -lnetutil_api".
-sed -i -e '/SRCS-y += util.c/a LDLIBS += -lnetutil_api' Makefile
+# Append line at the end: ext_deps += declare_dependency(link_args: '-lnetutil_api')
+sed -i -e "$ a ext_deps += declare_dependency(link_args: '-lnetutil_api')" meson.build
+
+# The meson.build in app does not honor ext_deps.
+# Make it do so
+#
+# Search for line with: "dep_objs = []"
+# Replace it with line: "dep_objs = ext_deps"
+sed -i -e 's/dep_objs = \[\]/dep_objs = ext_deps/' ../meson.build
+
 
