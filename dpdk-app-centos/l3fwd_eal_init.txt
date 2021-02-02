@@ -5,7 +5,6 @@
         argc -= ret;
         argv += ret;
 #else
-        int i;
         int myArgc = 0;
         char **myArgv = NULL;
 
