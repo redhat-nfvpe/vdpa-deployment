@@ -16,6 +16,13 @@ sed -i -e '/#include "l3fwd.h"/a #include "dpdk-args.h"' main.c
 sed -i -e 's!.offloads = DEV_RX_OFFLOAD_CHECKSUM,!.offloads = 0, /*DEV_RX_OFFLOAD_CHECKSUM,*/!' main.c
 
 
+# L3fwd uses ETH_MQ_RX_RSS mode which is not supported by vdpa backends
+#
+# Search for:   ".mq_mode = ETH_MQ_RX_RSS,".
+# Replace with: ".mq_mode = ETH_MQ_RX_NONE,".
+sed -i -e 's/.mq_mode = ETH_MQ_RX_RSS,/.mq_mode = ETH_MQ_RX_NONE,/' main.c
+
+
 # Replace the call to rte_eal_init() to call app-netutil code first
 # if no input parametes were passed in. app-netutil code generates
 # its own set of DPDK parameters that are used instead. If input
