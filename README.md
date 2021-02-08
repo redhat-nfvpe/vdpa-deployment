@@ -49,7 +49,13 @@ To leverage this repo, download this repo, run `make all`:
   To install the sriov-cni, the binary must be copied to the default CNI directory,
   typically `/opt/cni/bin/`. Alternatively, a DaemonSet can be deployed which will
   take care of doing that in all the nodes. See [sriov-cni](#sriov-cni).
-* `dpdk-app-devel` docker image: This image contains a recent DPDK installation
+* `dpdk-app-devel` docker image: This image contains a recent DPDK installation and
+some development utilities
+* `dpdk-app` docker image: This image contains a centos-based DPDK application powered
+by [app-netutil](https://github.com/openshift/app-netutil) that is able to run testpmd,
+l2fwd and l3fwd
+* `multus` image: This image deploys a multus binary that supports the
+[Device-info spec](https://github.com/k8snetworkplumbingwg/device-info-spec).
 
 If you don't want to build all the projects from source, docker images
 will be provided for convenience. See [Docker Hub section](#docker-hub)
@@ -59,26 +65,25 @@ into the different nodes:
 ```
     ./scripts/load-image.sh nfvpe/sriov-device-plugin user@HOSTNAME
     ./scripts/load-image.sh nfvpe/sriov-cni user@HOSTNAME
+    ./scripts/load-image.sh nfvpe/multus user@HOSTNAME
+    ./scripts/load-image.sh dpdk-app-centos user@HOSTNAME
 
 ```
 The following set of commands will deploy the images above.
-'NOTE:' Update configMap-vdpa.yaml to match local HW.
 ```
-   kubectl create -f ./deployment/netAttach-vdpa-vhost-mlx.yaml
-   kubectl create -f ./deployment/configMap-vdpa.yaml
-   kubectl create -f ./deployment/sriovdp-vdpa-daemonset.yaml
-   kubectl get node $HOSTNAME -o json | jq '.status.allocatable'
+    make deploy
 ```
+
+Update configMap-vdpa.yaml to match local HW and then run
+```
+    kubectl create -f ./deployment/configMap-vdpa.yaml
+```
+
+Finally, some sample network-attachment-definitions are available in
+`deployment`
 
 To deploy a sample application, see [Sample Applications](#sample-applications)
 
-The following set of commands will tear down the deployment above.
-```
-   kubectl delete -f ./deployment/sriovdp-vdpa-daemonset.yaml
-   kubectl delete -f ./deployment/configMap-vdpa.yaml
-   kubectl create -f ./deployment/netAttach-vdpa-vhost-mlx.yaml
-
-```
 
 ## Sample Applications
 Once the SR-IOV Device Plugin and SR-IOV CNI have been installed, the application
@@ -113,8 +118,10 @@ Delete the application by running:
     kubectl delete -f deployment/vdpa-single.yaml
 ```
 
-### vdpa-traffic-test
-The traffic test deploys two pods, one generates traffic, the other receives it.
+### vdpa-dpdk-traffic-test
+The traffic test deploys two pods using dpdk and
+[app-netutil](https://github.com/openshift/app-netutil). One generates traffic
+and the other receives it.
 
 In order to select where the generator and sink runs, node selectors are used.
 
@@ -132,14 +139,26 @@ First, add a label to the node you want the generator to run on:
 Deploy the application by running:
 
 ```
-    kubectl apply -f deployment/vdpa-traffic-test.yaml
+    kubectl apply -f deployment/netAttach-vdpa-vhost-mlx-1000.yaml
+    kubectl apply -f deployment/netAttach-vdpa-vhost-mlx-2000.yaml
+    kubectl apply -f deployment/vdpa-dpdk-traffic-test.yaml
 ```
 
 Delete the application by running:
 
 ```
-    kubectl delete -f deployment/vdpa-traffic-test.yaml
+    kubectl delete -f deployment/vdpa-dpdk-traffic-test.yaml
+    kubectl delete -f deployment/netAttach-vdpa-vhost-mlx-1000.yaml
+    kubectl delete -f deployment/netAttach-vdpa-vhost-mlx-2000.yaml
 ```
+
+Two env variables can be used in the deployment file
+(`deployment/vdpa-dpdk-traffic-test.yaml`) to modify the behavior of the pod.
+
+* **DPDK_SAMPLE_APP** can be used to select between testpmd, l2fwd and l3fwd.
+* **TESTPMD_EXTRA_ARGS** can be used to add extra command line arguments to 
+testpmd. For example "--forward-mode=flowgen". Those arguments will be appended
+to the default ones: "--auto-start --tx-first --stats-period 2"
 
 
 ### Prerequisites

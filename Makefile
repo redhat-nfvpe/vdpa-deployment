@@ -20,18 +20,22 @@ help:
 	@echo "                         integrated. Binary needs to copied to proper location"
 	@echo "                         once complete (i.e. - /opt/cni/bin/.)."
 	@echo " make dpdk-devel       - Make the development container. It has dpdk as well as userspace utilities."
-	@echo "				Useful for testing or development purposes"
+	@echo "                         Useful for testing or development purposes"
 	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo ""
-	@echo " make dpdk-app 	      - Make the centos8-based DPDK app powered by app-netutils."
-	@echo "				This sample container is able to run l2fwd, l3fwd and testpmd by autodetecting"
-	@echo "				the configured network devices and creating the apropriate DPDK parameters"
+	@echo " make dpdk-app         - Make the centos8-based DPDK app powered by app-netutils."
+	@echo "                         This sample container is able to run l2fwd, l3fwd and testpmd by autodetecting"
+	@echo "                         the configured network devices and creating the apropriate DPDK parameters"
 	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
 	@echo ""
 	@echo " make                  - Build all the local sub-projects locally."
 	@echo " make clean            - Cleanup all build artifacts."
 	@echo " make all              - Build all images for a deployment. Same as:"
 	@echo "                           make sriov-dp; make sriov-cni; make multus; make dpdk-devel; make dpdk-centos"
+	@echo " deploy                - Deploy the minimum pods and daemonsets. Same as:"
+	@echo "                           for f in sriovdp-vdpa-daemonset.yaml multus-daemonset.yaml sriovcni-vdpa-daemonset.yaml; do"
+	@echo "                              kubectl apply -f deployment/\$$f;"
+	@echo "                           done;"
 	@echo ""
 
 
@@ -207,3 +211,10 @@ dpdk-centos:
 	@echo "dpdk-app-centos $(NO_CACHE) ..."
 	@cd dpdk-app-centos; docker build $(NO_CACHE) --rm -t dpdk-app-centos .
 
+.PHONY: deploy
+deploy:
+	@for f in sriovdp-vdpa-daemonset.yaml multus-daemonset.yaml sriovcni-vdpa-daemonset.yaml; do\
+		kubectl delete -f deployment/$${f} 2>/dev/null || true;\
+		kubectl apply -f deployment/$${f};\
+	done;\
+	
