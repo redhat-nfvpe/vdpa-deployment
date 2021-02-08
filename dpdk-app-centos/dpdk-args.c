@@ -415,12 +415,20 @@ static int getInterfaces(int argc, int *pPortCnt, int *pPortMask) {
 							continue;
 						}
 
+						if ((ifaceRsp.pIface[i].NetworkStatus.Mac) &&
+							(strcmp(ifaceRsp.pIface[i].NetworkStatus.Mac,"") != 0)) {
+							snprintf(&macStr[0], DPDK_ARGS_MAX_MAC_STRLEN-1,
+								",mac=%s", ifaceRsp.pIface[i].NetworkStatus.Mac);
+						} else {
+							macStr[0] = '\0';
+						}
+
 						snprintf(&myArgsArray[argc++][0], DPDK_ARGS_MAX_ARG_STRLEN-1,
-								"--vdev=virtio_user%d,path=%s,queues=1",
-								 vhostCnt, vdpaDev->Path);
-								vhostCnt++;
-								*pPortMask = *pPortMask | 1 << *pPortCnt;
-								*pPortCnt  = *pPortCnt + 1;
+								"--vdev=virtio_user%d,path=%s,queues=1%s",
+								vhostCnt, vdpaDev->Path, &macStr[0]);
+						vhostCnt++;
+						*pPortMask = *pPortMask | 1 << *pPortCnt;
+						*pPortCnt  = *pPortCnt + 1;
 						break;
 
 					case NETUTIL_TYPE_MEMIF:
@@ -655,6 +663,7 @@ char** GetArgs(int *pArgc, eDpdkAppType appType)
 
 			strncpy(&myArgsArray[argc++][0], "--master-lcore", DPDK_ARGS_MAX_ARG_STRLEN-1);
 			strncpy(&myArgsArray[argc++][0], "1", DPDK_ARGS_MAX_ARG_STRLEN-1);
+			strncpy(&myArgsArray[argc++][0], "--iova-mode=va", DPDK_ARGS_MAX_ARG_STRLEN-1);
 
 			argc = getInterfaces(argc, &portCnt, &portMask);
 
@@ -663,14 +672,25 @@ char** GetArgs(int *pArgc, eDpdkAppType appType)
 			 */
 			strncpy(&myArgsArray[argc++][0], "--", DPDK_ARGS_MAX_ARG_STRLEN-1);
 
-			strncpy(&myArgsArray[argc++][0], "--auto-start", DPDK_ARGS_MAX_ARG_STRLEN-1);
-			strncpy(&myArgsArray[argc++][0], "--tx-first", DPDK_ARGS_MAX_ARG_STRLEN-1);
-			strncpy(&myArgsArray[argc++][0], "--no-lsc-interrupt", DPDK_ARGS_MAX_ARG_STRLEN-1);
+                        strncpy(&myArgsArray[argc++][0], "--auto-start", DPDK_ARGS_MAX_ARG_STRLEN-1);
+                        strncpy(&myArgsArray[argc++][0], "--tx-first", DPDK_ARGS_MAX_ARG_STRLEN-1);
+			// strncpy(&myArgsArray[argc++][0], "--no-lsc-interrupt", DPDK_ARGS_MAX_ARG_STRLEN-1);
 
-			/* testpmd exits if there is not user enteraction, so print stats */
-			/* every so often to keep program running. */
-			strncpy(&myArgsArray[argc++][0], "--stats-period", DPDK_ARGS_MAX_ARG_STRLEN-1);
-			strncpy(&myArgsArray[argc++][0], "60", DPDK_ARGS_MAX_ARG_STRLEN-1);
+                        /* testpmd exits if there is not user enteraction, so print stats */
+                        /* every so often to keep program running. */
+                        strncpy(&myArgsArray[argc++][0], "--stats-period", DPDK_ARGS_MAX_ARG_STRLEN-1);
+                        strncpy(&myArgsArray[argc++][0], "2", DPDK_ARGS_MAX_ARG_STRLEN-1);
+
+                        // Allow the user to specify the extra arguments via
+			// TESTPMD_EXTRA_ARGS ENV var
+			char* extraArgs = getenv("TESTPMD_EXTRA_ARGS");
+			if (extraArgs) {
+				char* arg =  strtok(extraArgs, " ");
+				while(arg != NULL) {
+					strncpy(&myArgsArray[argc++][0], arg, DPDK_ARGS_MAX_ARG_STRLEN-1);
+					arg = strtok(NULL, " ");
+				}
+			}
 		}
 		else if (appType == DPDK_APP_L3FWD) {
 			/* NOTE: The l3fwd app requires a TX Queue per lcore. So seeting lcore to 1 */
