@@ -160,8 +160,14 @@ sriov-dp:
 
 .PHONY: clean-multus
 REPO_PATH_MULTUS=github.com/intel/multus-cni
+ALT_MULTUS_REPO=https://github.com/amorenoz/multus-cni.git
+ALT_MULTUS_REF=bug/runtime
+
 clean-multus:
-	@docker rmi nfvpe/multus || true
+	@docker image rm -f nfvpe/multus || true
+	@if [ -d gopath/src/$(REPO_PATH_MULTUS) ]; then \
+	    rm -fr gopath/src/$(REPO_PATH_MULTUS); \
+	fi \
 
 .PHONY: multus
 ifeq ($(SCRATCH),y)
