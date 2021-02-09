@@ -1,0 +1,98 @@
+## Deploys a traffic generator and a traffic sink on different nodes
+## The node label "vdpa-test-role: gen" is used to place the generator pod
+## The node label "vdpa-test-role: sink" is used to place the sink pod
+# Eg:
+# kubectl label nodes <gen-nodename> vdpa-test-role-gen=true
+# kubectl label nodes <sink-nodename> vdpa-test-role-sink=true
+apiVersion: v1
+kind: Pod
+metadata:
+  name: uperf-gen
+  annotations:
+    k8s.v1.cni.cncf.io/networks: "vdpa-mlx-virtio-net"
+spec:
+  nodeSelector:
+    vdpa-test-role-gen: "true"
+  containers:
+  - name: uperf-gen
+    image: uperf-app:latest
+    imagePullPolicy: Never
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /etc/podnetinfo
+      name: podnetinfo
+      readOnly: false
+    resources:
+      requests:
+        intel.com/vdpa_mlx_virtio: '1'
+        #cpu: '2'
+      limits:
+        intel.com/vdpa_mlx_virtio: '1'
+        #cpu: '2'
+    # Uncomment for debugging :
+    #command: ["sleep"]
+    #args: ["infinity"]
+    env:
+      - name: UPERF_MODE
+        value: "client"
+      - name: PSIZE
+        value: "8k"
+      - name: NTHREADS
+        value: "60"
+  volumes:
+  - name: podnetinfo
+    downwardAPI:
+      items:
+        - path: "labels"
+          fieldRef:
+            fieldPath: metadata.labels
+        - path: "annotations"
+          fieldRef:
+            fieldPath: metadata.annotations
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: uperf-sink
+  annotations:
+    k8s.v1.cni.cncf.io/networks: "vdpa-mlx-virtio-net"
+spec:
+  nodeSelector:
+    vdpa-test-role-sink: "true"
+  containers:
+  - name: uperf-sink
+    image: uperf-app:latest
+    imagePullPolicy: Never
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - mountPath: /etc/podnetinfo
+      name: podnetinfo
+      readOnly: false
+    resources:
+      requests:
+        intel.com/vdpa_mlx_virtio: '1'
+        #cpu: '2'
+      limits:
+        #cpu: '2'
+        intel.com/vdpa_mlx_virtio: '1'
+    # Uncomment for debugging :
+    #command: ["sleep"]
+    #args: ["infinity"]
+    env:
+      - name: UPERF_MODE
+        value: "server"
+  volumes:
+  - name: podnetinfo
+    downwardAPI:
+      items:
+        - path: "labels"
+          fieldRef:
+            fieldPath: metadata.labels
+        - path: "annotations"
+          fieldRef:
+            fieldPath: metadata.annotations
+  - name: hugepage
+    emptyDir:
+      medium: HugePages
