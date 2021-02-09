@@ -36,6 +36,7 @@ help:
 	@echo "                           for f in sriovdp-vdpa-daemonset.yaml multus-daemonset.yaml sriovcni-vdpa-daemonset.yaml; do"
 	@echo "                              kubectl apply -f deployment/\$$f;"
 	@echo "                           done;"
+	@echo " show                   - Show a summary of the SR-IOV configuration" 
 	@echo ""
 
 
@@ -223,4 +224,16 @@ deploy:
 		kubectl delete -f deployment/$${f} 2>/dev/null || true;\
 		kubectl apply -f deployment/$${f};\
 	done;\
+.PHONY: show
+show:
+	@echo "SR-IOV Device Plugin: Discovered Devices:"
+	@for node in $$(kubectl get nodes | grep Ready | awk '{print $$1}' ); do \
+		echo "Node $$node:" ; kubectl get node $$node -o json | jq '.status.allocatable'; \
+	done
+	@echo ""
+	@echo "Network Attachment Definitions"
+	@ for na in $$(kubectl get network-attachment-definition | grep -v NAME | awk '{print $$1}'); do \
+		kubectl get network-attachment-definition $$na -o jsonpath='Name = {.metadata.name} => Resource: {.metadata.annotations.k8s\.v1\.cni\.cncf\.io/resourceName}'; echo "" ;\
+	done
+
 	
