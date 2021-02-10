@@ -79,6 +79,11 @@ Update configMap-vdpa.yaml to match local HW and then run
     kubectl create -f ./deployment/configMap-vdpa.yaml
 ```
 
+A summary of the SR-IOV configuration can be displayed with the following command:
+```
+    make show
+```
+
 Finally, some sample network-attachment-definitions are available in
 `deployment`
 
@@ -93,6 +98,7 @@ sample applications:
 * **single-pod**: A simgle DPDK pod using a vDPA interface
 * **vdpa-traffic-test**: A simple test that deploys two pods that send packets to each
     other (using testpmd)
+* **vdpa-uperf-traffic-test**: Uses uperf to send traffic using virtio-vdpa driver
 * More TBD
 
 ### single-pod
@@ -159,6 +165,37 @@ Two env variables can be used in the deployment file
 * **TESTPMD_EXTRA_ARGS** can be used to add extra command line arguments to 
 testpmd. For example "--forward-mode=flowgen". Those arguments will be appended
 to the default ones: "--auto-start --tx-first --stats-period 2"
+
+### vdpa-uperf-traffic-test
+The uperf traffic test uses [uperf](http://uperf.org/) to send traffic betweeen
+two pods using the kernel network stack.
+
+In order to select where the generator and sink runs, node selectors are used.
+
+First, add a label to the node you want the generator to run on:
+
+```
+    kubectl label node GEN_NODENAME vdpa-test-role-gen=true
+```
+
+```
+    kubectl label node SINK_NODENAME vdpa-test-role-sink=true
+```
+
+Deploy the application by running:
+
+```
+    kubectl apply -f deployment/netAttach-vdpa-virtio-mlx.yaml
+    kubectl apply -f deployment/vdpa-uperf-traffic-test.yaml
+```
+
+Three env variables can be used to modify the injected traffic (on the generator pod):
+
+* **NTHREADS** can be used to select the number of threads (default: 10)
+* **PSIZE** can be used to select the packet size (default: 8k)
+* **PROTO** can be used to select the protocol (default: tcp)
+
+For more information check [the manual](http://uperf.org/manual.html)
 
 
 ### Prerequisites

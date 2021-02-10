@@ -27,6 +27,7 @@ help:
 	@echo "                         This sample container is able to run l2fwd, l3fwd and testpmd by autodetecting"
 	@echo "                         the configured network devices and creating the apropriate DPDK parameters"
 	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
+	@echo " make uperf-app        - Make the uperf app"
 	@echo ""
 	@echo " make                  - Build all the local sub-projects locally."
 	@echo " make clean            - Cleanup all build artifacts."
@@ -218,12 +219,19 @@ dpdk-centos:
 	@echo "dpdk-app-centos $(NO_CACHE) ..."
 	@cd dpdk-app-centos; docker build $(NO_CACHE) --rm -t dpdk-app-centos .
 
+.PHONY: uperf-app
+uperf-app:
+	@echo ""
+	@echo "uperf app $(NO_CACHE) ..."
+	@cd uperf-app; docker build $(NO_CACHE) --rm -t uperf-app .
+
 .PHONY: deploy
 deploy:
 	@for f in sriovdp-vdpa-daemonset.yaml multus-daemonset.yaml sriovcni-vdpa-daemonset.yaml; do\
 		kubectl delete -f deployment/$${f} 2>/dev/null || true;\
 		kubectl apply -f deployment/$${f};\
 	done;\
+
 .PHONY: show
 show:
 	@echo "SR-IOV Device Plugin: Discovered Devices:"
