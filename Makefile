@@ -78,7 +78,7 @@ export GOBIN=${PWD}/bin
 
 ## SR-IOV CNI
 export ALT_CNI_REPO=https://github.com/amorenoz/sriov-cni.git
-export ALT_CNI_REF=rfe/vdpa
+export ALT_CNI_REF=bug/mac
 
 .PHONY: clean-sriov-cni
 clean-sriov-cni:
