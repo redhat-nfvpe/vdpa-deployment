@@ -3,6 +3,8 @@ set -e
 
 echo "DPDK_SAMPLE_APP is set as: $DPDK_SAMPLE_APP"
 
+ulimit -l unlimited
+
 if [[ $DPDK_SAMPLE_APP == l2fwd ]] ; then
    echo "Calling: l2fwd"
    exec "l2fwd"

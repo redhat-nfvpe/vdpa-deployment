@@ -11,16 +11,20 @@ metadata:
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
       {
-        "name": "vdpa-mlx-vhost-net",
+        "name": "vdpa-mlx-vhost-net-1000",
         "mac": "0C:FE:C0:FF:EE:00"
+      },
+      {
+        "name": "vdpa-mlx-vhost-net-2000",
+        "mac": "0C:FE:C0:FF:EE:01"
       }
       ]'
 spec:
   nodeSelector:
     vdpa-test-role-gen: "true"
   containers:
-  - name: vdpa-example
-    image: dpdk-app-devel:latest
+  - name: vdpa-dpd-app
+    image: dpdk-app-centos:latest
     imagePullPolicy: Never
     securityContext:
       privileged: true
@@ -34,27 +38,19 @@ spec:
       requests:
         memory: 1Gi
         #memory: 2Mi
-        intel.com/vdpa_mlx_vhost: '1'
+        intel.com/vdpa_mlx_vhost: '2'
       limits:
         hugepages-1Gi: 2Gi
         #hugepages-2Mi: 2048Mi
-        intel.com/vdpa_mlx_vhost: '1'
+        intel.com/vdpa_mlx_vhost: '2'
+    # Uncomment for debugging :
+    #command: ["sleep"]
+    #args: ["infinity"]
     env:
-      - name: MAC
-        value: "0C:FE:C0:FF:EE:00"
-    command: ["./testpmd-wrapper.sh",
-              "INTEL_COM_VDPA_MLX_VHOST",
-              "-m", "1024",
-              "--no-pci",
-              "--iova-mode=va",
-              "-l", "4,5",
-              "--file-prefix=vdpa-test-gen",
-              "--log-level pmd.net.virtio.init:debug",
-              "--",
-              "-a",
-              "--stats-period", "2",
-              "--forward-mode=txonly",
-              "--eth-peer=0,0C:FE:C0:FF:EE:11"]
+      - name: DPDK_SAMPLE_APP
+        value: "testpmd"
+      - name: TESTPMD_EXTRA_ARGS
+        value: "--forward-mode=txonly"
   volumes:
   - name: podnetinfo
     downwardAPI:
@@ -76,7 +72,11 @@ metadata:
   annotations:
     k8s.v1.cni.cncf.io/networks: '[
       {
-        "name": "vdpa-mlx-vhost-net",
+        "name": "vdpa-mlx-vhost-net-1000",
+        "mac": "0C:FE:C0:FF:EE:10"
+      },
+      {
+        "name": "vdpa-mlx-vhost-net-2000",
         "mac": "0C:FE:C0:FF:EE:11"
       }
       ]'
@@ -85,7 +85,7 @@ spec:
     vdpa-test-role-sink: "true"
   containers:
   - name: vdpa-example
-    image: dpdk-app-devel:latest
+    image: dpdk-app-centos:latest
     imagePullPolicy: Never
     securityContext:
       privileged: true
@@ -99,27 +99,19 @@ spec:
       requests:
         memory: 1Gi
         #memory: 2Mi
-        intel.com/vdpa_mlx_vhost: '1'
+        intel.com/vdpa_mlx_vhost: '2'
       limits:
         hugepages-1Gi: 2Gi
         #hugepages-2Mi: 2048Mi
-        intel.com/vdpa_mlx_vhost: '1'
+        intel.com/vdpa_mlx_vhost: '2'
+    # Uncomment for debugging :
+    #command: ["sleep"]
+    #args: ["infinity"]
     env:
-      - name: MAC
-        value: "0C:FE:C0:FF:EE:11"
-    command: ["./testpmd-wrapper.sh",
-              "INTEL_COM_VDPA_MLX_VHOST",
-              "-m", "1024",
-              "--no-pci",
-              "--iova-mode=va",
-              "-l", "0,1",
-              "--file-prefix=vdpa-test-sink",
-              "--log-level pmd.net.virtio.init:debug",
-              "--",
-              "-a",
-              "--stats-period", "2",
-              "--forward-mode=rxonly",
-              "--eth-peer=0,0C:FE:C0:FF:EE:00"]
+      - name: DPDK_SAMPLE_APP
+        value: "testpmd"
+      - name: TESTPMD_EXTRA_ARGS
+        value: "--forward-mode=rxonly"
   volumes:
   - name: podnetinfo
     downwardAPI:

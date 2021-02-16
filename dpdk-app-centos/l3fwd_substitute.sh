@@ -16,6 +16,13 @@ sed -i -e '/#include "l3fwd.h"/a #include "dpdk-args.h"' main.c
 sed -i -e 's!.offloads = DEV_RX_OFFLOAD_CHECKSUM,!.offloads = 0, /*DEV_RX_OFFLOAD_CHECKSUM,*/!' main.c
 
 
+# L3fwd uses ETH_MQ_RX_RSS mode which is not supported by vdpa backends
+#
+# Search for:   ".mq_mode = ETH_MQ_RX_RSS,".
+# Replace with: ".mq_mode = ETH_MQ_RX_NONE,".
+sed -i -e 's/.mq_mode = ETH_MQ_RX_RSS,/.mq_mode = ETH_MQ_RX_NONE,/' main.c
+
+
 # Replace the call to rte_eal_init() to call app-netutil code first
 # if no input parametes were passed in. app-netutil code generates
 # its own set of DPDK parameters that are used instead. If input
@@ -47,17 +54,16 @@ r l3fwd_parse_args.txt
 }' main.c
 
 
-# Add new app-netutil source file to the Makefile.
+# Add new app-netutil source file to meson.build.
 #
-# Search for line with: "SRCS-y :=".
-# Append line:          "SRCS-y += dpdk-args.c".
-sed -i -e '/SRCS-y :=/a SRCS-y += dpdk-args.c' Makefile
+# Search for line with: "sources = files(SRCS-y :=".
+# Append line:          "       'dpdk-args.c'"
+sed -i "/sources = files(/a  \ \ \ \ \ \ \  'dpdk-args.c'," meson.build
 
 
-# Add new app-netutil shared library to the Makefile.
+# Add new app-netutil shared library to meson.build.
 # Contains the C API and GO package which collects the
 # interface data.
 #
-# Search for line with: "SRCS-y += dpdk-args.c".
-# Append line:          "LDLIBS += -lnetutil_api".
-sed -i -e '/SRCS-y += dpdk-args.c/a LDLIBS += -lnetutil_api' Makefile
+# Append line at the end: ext_deps += declare_dependency(link_args: '-lnetutil_api')
+sed -i -e "$ a ext_deps += declare_dependency(link_args: '-lnetutil_api')" meson.build
