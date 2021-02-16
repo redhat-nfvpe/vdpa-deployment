@@ -8,7 +8,7 @@ endif
 
 # Default to build
 .PHONY: all
-all: sriov-dp sriov-cni multus dpdk-devel dpdk-centos
+all: sriov-dp sriov-cni multus dpdk-centos
 
 help:
 	@echo "Make Targets:"
@@ -27,6 +27,7 @@ help:
 	@echo "                         This sample container is able to run l2fwd, l3fwd and testpmd by autodetecting"
 	@echo "                         the configured network devices and creating the apropriate DPDK parameters"
 	@echo "                         Append SCRATCH=y to build image using '--no-cache'."
+	@echo " make uperf-app        - Make the uperf app"
 	@echo ""
 	@echo " make                  - Build all the local sub-projects locally."
 	@echo " make clean            - Cleanup all build artifacts."
@@ -36,6 +37,7 @@ help:
 	@echo "                           for f in sriovdp-vdpa-daemonset.yaml multus-daemonset.yaml sriovcni-vdpa-daemonset.yaml; do"
 	@echo "                              kubectl apply -f deployment/\$$f;"
 	@echo "                           done;"
+	@echo " show                   - Show a summary of the SR-IOV configuration" 
 	@echo ""
 
 
@@ -76,7 +78,7 @@ export GOBIN=${PWD}/bin
 
 ## SR-IOV CNI
 export ALT_CNI_REPO=https://github.com/amorenoz/sriov-cni.git
-export ALT_CNI_REF=rfe/vdpa
+export ALT_CNI_REF=bug/mac
 
 .PHONY: clean-sriov-cni
 clean-sriov-cni:
@@ -217,10 +219,29 @@ dpdk-centos:
 	@echo "dpdk-app-centos $(NO_CACHE) ..."
 	@cd dpdk-app-centos; docker build $(NO_CACHE) --rm -t dpdk-app-centos .
 
+.PHONY: uperf-app
+uperf-app:
+	@echo ""
+	@echo "uperf app $(NO_CACHE) ..."
+	@cd uperf-app; docker build $(NO_CACHE) --rm -t uperf-app .
+
 .PHONY: deploy
 deploy:
 	@for f in sriovdp-vdpa-daemonset.yaml multus-daemonset.yaml sriovcni-vdpa-daemonset.yaml; do\
 		kubectl delete -f deployment/$${f} 2>/dev/null || true;\
 		kubectl apply -f deployment/$${f};\
 	done;\
+
+.PHONY: show
+show:
+	@echo "SR-IOV Device Plugin: Discovered Devices:"
+	@for node in $$(kubectl get nodes | grep Ready | awk '{print $$1}' ); do \
+		echo "Node $$node:" ; kubectl get node $$node -o json | jq '.status.allocatable'; \
+	done
+	@echo ""
+	@echo "Network Attachment Definitions"
+	@ for na in $$(kubectl get network-attachment-definition | grep -v NAME | awk '{print $$1}'); do \
+		kubectl get network-attachment-definition $$na -o jsonpath='Name = {.metadata.name} => Resource: {.metadata.annotations.k8s\.v1\.cni\.cncf\.io/resourceName}'; echo "" ;\
+	done
+
 	
