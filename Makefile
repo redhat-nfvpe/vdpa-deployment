@@ -8,7 +8,7 @@ endif
 
 # Default to build
 .PHONY: all
-all: sriov-dp sriov-cni multus dpdk-devel dpdk-centos
+all: sriov-dp sriov-cni multus dpdk-centos
 
 help:
 	@echo "Make Targets:"
